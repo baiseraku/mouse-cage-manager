@@ -1,0 +1,21 @@
+[package]
+name = "mouse-cage-manager"
+version = "1.0.0"
+description = "Mouse cage management desktop application"
+authors = ["seraku"]
+edition = "2021"
+
+[lib]
+name = "mouse_cage_manager_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-opener = "2"
+rfd = "0.15"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+chrono = "0.4"
