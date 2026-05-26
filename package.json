@@ -1,0 +1,25 @@
+{
+  "name": "mouse-cage-manager",
+  "productName": "小鼠笼位管理",
+  "version": "1.0.0",
+  "description": "Mouse cage management desktop application",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build",
+    "tauri:build:portable": "tauri build --no-bundle"
+  },
+  "keywords": [],
+  "author": "seraku",
+  "license": "MIT",
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.8.4",
+    "vite": "^5.4.21"
+  },
+  "dependencies": {}
+}

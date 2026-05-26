@@ -1,0 +1,2964 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>小鼠笼位管理系统</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #ffffff; --bg2: #f6f7fb; --card: #ffffff;
+            --card-hover: #f8fafc; --border: #e5e7eb;
+            --fg: #1f2937; --fg2: #6b7280;
+            --accent: #ff7a59; --accent-glow: rgba(255,122,89,0.16);
+            --male: #4ea8de; --female: #e85d75; --unknown: #9ca3af;
+            --male-bg: rgba(78,168,222,0.12); --female-bg: rgba(232,93,117,0.12); --unknown-bg: rgba(156,163,175,0.14);
+            --success: #34d399; --danger: #ef4444; --danger-bg: rgba(239,68,68,0.1);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Noto Sans SC', sans-serif;
+            background: var(--bg); color: var(--fg);
+            min-height: 100vh; overflow-x: hidden;
+        }
+        body::before {
+            content: ''; position: fixed; top: -30%; left: -10%;
+            width: 60vw; height: 60vw;
+            background: radial-gradient(circle, rgba(255,122,89,0.09) 0%, transparent 70%);
+            pointer-events: none; z-index: 0;
+        }
+        body::after {
+            content: ''; position: fixed; bottom: -20%; right: -10%;
+            width: 50vw; height: 50vw;
+            background: radial-gradient(circle, rgba(78,168,222,0.06) 0%, transparent 70%);
+            pointer-events: none; z-index: 0;
+        }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: var(--bg2); }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+        .topbar {
+            position: sticky; top: 0; z-index: 50;
+            background: rgba(255,255,255,0.88); backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border);
+            padding: 0 2rem; height: 64px;
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .topbar-brand { display: flex; align-items: center; }
+        .topbar-brand h1 { font-size: 1.15rem; font-weight: 700; }
+        .topbar-right { display: flex; gap: 0.5rem; align-items: center; }
+
+        .btn {
+            display: inline-flex; align-items: center; gap: 0.4rem;
+            padding: 0.5rem 1rem; border-radius: 10px;
+            font-size: 0.85rem; font-weight: 500;
+            border: none; cursor: pointer; transition: all 0.2s ease;
+            font-family: inherit; white-space: nowrap;
+        }
+        .btn:active { transform: scale(0.97); }
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent), #ef5b3f);
+            color: #fff; box-shadow: 0 2px 12px rgba(255,122,89,0.24);
+        }
+        .btn-primary:hover { box-shadow: 0 4px 20px rgba(255,122,89,0.36); transform: translateY(-1px); }
+        .btn-ghost { background: transparent; color: var(--fg2); border: 1px solid var(--border); }
+        .btn-ghost:hover { background: var(--card); color: var(--fg); }
+        .btn-danger { background: var(--danger-bg); color: var(--danger); border: 1px solid rgba(239,68,68,0.2); }
+        .btn-danger:hover { background: rgba(239,68,68,0.2); }
+        .btn-sm { padding: 0.35rem 0.7rem; font-size: 0.78rem; border-radius: 8px; }
+
+        .btn-delete-group {
+            background: transparent; color: var(--fg2);
+            border: 1px solid var(--border); transition: all 0.25s ease;
+        }
+        .btn-delete-group:hover { color: var(--danger); border-color: rgba(239,68,68,0.3); background: var(--danger-bg); }
+        .btn-delete-group.confirming {
+            background: var(--danger); color: #fff;
+            border-color: var(--danger); animation: shake 0.35s ease;
+        }
+        @keyframes shake {
+            0%,100%{transform:translateX(0)} 20%{transform:translateX(-3px)}
+            40%{transform:translateX(3px)} 60%{transform:translateX(-2px)} 80%{transform:translateX(2px)}
+        }
+
+        .btn-icon {
+            width: 32px; height: 32px; padding: 0;
+            display: inline-flex; align-items: center; justify-content: center;
+            border-radius: 8px; background: #f8fafc;
+            border: 1px solid var(--border);
+            color: var(--fg2); cursor: pointer; transition: all 0.2s ease;
+            font-size: 13px; line-height: 1; font-family: inherit;
+        }
+        .btn-icon:hover { background: #eef2f7; color: var(--fg); border-color: #d1d5db; }
+        .btn-icon.icon-add:hover { background: var(--accent-glow); color: var(--accent); border-color: rgba(212,148,58,0.3); }
+        .btn-icon.icon-edit:hover { background: rgba(78,168,222,0.1); color: var(--male); border-color: rgba(78,168,222,0.3); }
+        .btn-icon.icon-del:hover { background: var(--danger-bg); color: var(--danger); border-color: rgba(239,68,68,0.3); }
+
+        .hidden-input { display: none; }
+
+        .main-container {
+            position: relative; z-index: 1;
+            max-width: 1400px; margin: 0 auto; padding: 1.5rem 2rem 3rem;
+        }
+
+        .stats-row { display: grid; grid-template-columns: repeat(5,1fr); gap: 1rem; margin-bottom: 1.5rem; }
+        .stat-card {
+            background: var(--card); border: 1px solid var(--border);
+            border-radius: 14px; padding: 1.2rem 1.4rem;
+            position: relative; overflow: hidden; transition: all 0.3s ease;
+            box-shadow: 0 8px 24px rgba(15,23,42,0.04);
+        }
+        .stat-card:hover { border-color: rgba(212,148,58,0.3); transform: translateY(-2px); }
+        .stat-card::before { content:''; position:absolute; top:0; left:0; right:0; height:2px; }
+        .stat-card:nth-child(1)::before { background: linear-gradient(90deg,var(--accent),transparent); }
+        .stat-card:nth-child(2)::before { background: linear-gradient(90deg,var(--success),transparent); }
+        .stat-card:nth-child(3)::before { background: linear-gradient(90deg,var(--male),transparent); }
+        .stat-card:nth-child(4)::before { background: linear-gradient(90deg,var(--unknown),transparent); }
+        .stat-card:nth-child(5)::before { background: linear-gradient(90deg,var(--female),transparent); }
+        .stat-label { font-size: 0.78rem; color: var(--fg2); margin-bottom: 0.5rem; }
+        .stat-value { font-size: 1.8rem; font-weight: 900; line-height: 1; }
+        .stat-card:nth-child(1) .stat-value { color: var(--accent); }
+        .stat-card:nth-child(2) .stat-value { color: var(--success); }
+        .stat-card:nth-child(3) .stat-value { color: var(--male); }
+        .stat-card:nth-child(4) .stat-value { color: var(--unknown); }
+        .stat-card:nth-child(5) .stat-value { color: var(--female); }
+
+        .toolbar { display:flex; align-items:center; gap:0.75rem; margin-bottom:1.5rem; flex-wrap:wrap; }
+        .search-box { flex:1; min-width:200px; position:relative; }
+        .quick-filters {
+            width:100%; display:flex; gap:0.5rem; flex-wrap:wrap;
+        }
+        .quick-filter {
+            display:inline-flex; align-items:center; gap:0.35rem;
+            padding:0.42rem 0.7rem; border-radius:999px;
+            background:var(--card); border:1px solid var(--border);
+            color:var(--fg2); font-size:0.78rem; cursor:pointer;
+            transition:all 0.2s ease;
+        }
+        .quick-filter:hover { border-color:var(--accent); color:var(--fg); }
+        .quick-filter input {
+            accent-color:var(--accent);
+            width:13px; height:13px;
+        }
+        .search-box .search-prefix {
+            position:absolute; left:12px; top:50%; transform:translateY(-50%);
+            color:var(--fg2); font-size:0.8rem; pointer-events:none;
+        }
+        .search-box input {
+            width:100%; padding:0.55rem 0.9rem 0.55rem 2rem;
+            background:var(--card); border:1px solid var(--border);
+            border-radius:10px; color:var(--fg);
+            font-size:0.85rem; font-family:inherit; outline:none; transition:all 0.2s;
+        }
+        .search-box input::placeholder { color:var(--fg2); }
+        .search-box input:focus { border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-glow); }
+
+        .filter-select {
+            padding:0.55rem 2rem 0.55rem 0.9rem;
+            background:var(--card); border:1px solid var(--border);
+            border-radius:10px; color:var(--fg);
+            font-size:0.85rem; font-family:inherit; outline:none; cursor:pointer; appearance:none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M6 8L1 3h10z' fill='%239a9ca5'/%3E%3C/svg%3E");
+            background-repeat:no-repeat; background-position:right 10px center;
+        }
+        .filter-select:focus { border-color:var(--accent); }
+
+        .cage-grid { display:flex; flex-direction:column; gap:1rem; }
+        .location-group {
+            border:2px solid var(--group-color, rgba(255,122,89,0.3));
+            border-radius:22px;
+            background:linear-gradient(180deg, color-mix(in srgb, var(--group-color, rgba(255,122,89,0.3)) 8%, #fff), rgba(255,255,255,0.92));
+            box-shadow:0 14px 34px color-mix(in srgb, var(--group-color, rgba(255,122,89,0.3)) 16%, rgba(15,23,42,0.03));
+            padding:0.9rem;
+            position:relative;
+            transition:border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease, opacity 0.2s ease;
+        }
+        .location-group.sortable-group { cursor:grab; }
+        .location-group.sortable-group:active { cursor:grabbing; }
+        .location-group.group-dragging {
+            opacity:0.52;
+            transform:scale(0.995);
+        }
+        .location-group.group-drag-target-before::before,
+        .location-group.group-drag-target-after::after {
+            content:'';
+            position:absolute;
+            left:18px;
+            right:18px;
+            height:3px;
+            border-radius:999px;
+            background:var(--accent);
+            box-shadow:0 0 8px rgba(255,122,89,0.28);
+            pointer-events:none;
+        }
+        .location-group.group-drag-target-before::before { top:-8px; }
+        .location-group.group-drag-target-after::after { bottom:-8px; }
+        .location-group.location-group-unstyled {
+            border:none;
+            background:transparent;
+            box-shadow:none;
+            padding:0;
+        }
+        .location-group-header {
+            display:flex; align-items:center; justify-content:space-between;
+            gap:0.75rem;
+            margin-bottom:0.8rem;
+            padding:0 0.15rem;
+            cursor:inherit;
+        }
+        .location-group-title {
+            font-size:0.82rem;
+            font-weight:700;
+            color:var(--group-color, var(--accent));
+            letter-spacing:0.04em;
+        }
+        .location-group-meta {
+            font-size:0.75rem;
+            color:var(--fg2);
+            white-space:nowrap;
+        }
+        .location-group-grid {
+            display:grid;
+            grid-template-columns:repeat(auto-fill,minmax(320px,1fr));
+            gap:1rem;
+        }
+
+        .cage-card {
+            background:var(--card); border:1px solid var(--border);
+            border-radius:16px; overflow:visible;
+            display:flex; flex-direction:column;
+            transition:all 0.3s ease; animation:cardIn 0.4s ease backwards;
+            box-shadow: 0 10px 30px rgba(15,23,42,0.05);
+            position:relative;
+            height:100%;
+        }
+        .cage-card:hover { border-color:rgba(212,148,58,0.3); transform:translateY(-3px); box-shadow:0 16px 36px rgba(15,23,42,0.1); }
+        .cage-card.sortable { cursor:grab; }
+        .cage-card.sortable:active { cursor:grabbing; }
+        .cage-card.dragging {
+            opacity:0.45;
+            transform:scale(0.98);
+            box-shadow:0 20px 40px rgba(15,23,42,0.18);
+        }
+        .cage-card.drag-target-before::before,
+        .cage-card.drag-target-after::after {
+            content:'';
+            position:absolute;
+            top:14px;
+            bottom:14px;
+            width:3px;
+            border-radius:999px;
+            background:var(--accent);
+            box-shadow:
+                0 0 8px rgba(255,122,89,0.42),
+                0 0 16px rgba(255,122,89,0.26),
+                0 0 24px rgba(255,122,89,0.16);
+            pointer-events:none;
+        }
+        .cage-card.drag-target-before::before { left:calc(-0.5rem - 1.5px); }
+        .cage-card.drag-target-after::after { right:calc(-0.5rem - 1.5px); }
+        @keyframes cardIn { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+
+        .cage-header { padding:1.2rem 1.4rem 0.8rem; display:flex; justify-content:space-between; align-items:flex-start; gap:0.5rem; }
+        .cage-main { display:flex; gap:0.75rem; align-items:flex-start; min-width:0; flex:1; }
+        .cage-name-wrap { min-width:0; flex:1; }
+        .cage-name {
+            font-size:1.1rem; font-weight:700; min-width:0;
+            color:var(--fg); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+        }
+        .cage-location { font-size:0.75rem; color:var(--fg2); margin-top:0.25rem; }
+        .cage-actions {
+            position:relative;
+            display:flex; justify-content:flex-end; align-items:flex-start;
+            flex:0 0 auto;
+        }
+        .cage-actions-menu {
+            position:relative;
+            display:flex; align-items:center; justify-content:flex-end;
+            width:32px; height:32px;
+            margin:0;
+            overflow:visible;
+        }
+        .cage-actions-trigger {
+            position:absolute;
+            top:0; right:0;
+            z-index:2;
+            background:#f8fafc;
+        }
+        .cage-actions-panel {
+            position:absolute;
+            top:0; right:0;
+            display:flex; align-items:center; gap:4px;
+            padding:0;
+            border-radius:10px;
+            z-index:3;
+            opacity:0;
+            pointer-events:none;
+            transform:none;
+            transition:opacity 0.16s ease;
+            transition-delay:0.08s;
+            transform-origin:top right;
+        }
+        .cage-actions-menu:hover .cage-actions-panel,
+        .cage-actions-menu:focus-within .cage-actions-panel,
+        .cage-actions-menu.is-open .cage-actions-panel {
+            opacity:1;
+            pointer-events:auto;
+            transition-delay:0s;
+        }
+        .cage-actions-menu:hover .cage-actions-trigger,
+        .cage-actions-menu:focus-within .cage-actions-trigger,
+        .cage-actions-menu.is-open .cage-actions-trigger {
+            opacity:0;
+            pointer-events:none;
+        }
+        .cage-body { padding:0 1.4rem 1.2rem; flex:1 1 auto; }
+
+        .gender-bar { height:6px; border-radius:3px; background:var(--bg2); margin:0.8rem 0; overflow:hidden; display:flex; }
+        .gender-bar .male-seg { background:var(--male); transition:width 0.5s ease; border-radius:3px 0 0 3px; }
+        .gender-bar .unknown-seg { background:var(--unknown); transition:width 0.5s ease; }
+        .gender-bar .female-seg { background:var(--female); transition:width 0.5s ease; border-radius:0 3px 3px 0; }
+        .gender-labels { display:flex; justify-content:space-between; font-size:0.72rem; color:var(--fg2); }
+        .gender-labels span { display:flex; align-items:center; gap:0.3rem; }
+        .gender-labels .dot { width:6px; height:6px; border-radius:50%; display:inline-block; }
+        .gender-labels .dot.m { background:var(--male); }
+        .gender-labels .dot.u { background:var(--unknown); }
+        .gender-labels .dot.f { background:var(--female); }
+
+        .mice-list { margin-top:0.75rem; display:flex; flex-direction:column; gap:0.4rem; }
+        .mouse-item {
+            display:flex; align-items:center; justify-content:space-between;
+            padding:0.55rem 0.75rem; background:var(--bg2);
+            border-radius:10px; font-size:0.8rem; transition:all 0.2s;
+        }
+        .mouse-item:hover { background:#eef2f7; }
+        .mouse-item .strain { font-weight:600; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .mouse-item .detail { display:flex; gap:0.4rem; align-items:center; color:var(--fg2); flex-shrink:0; }
+        .mouse-item .gender-tag {
+            padding:0.15rem 0.5rem; border-radius:5px;
+            font-size:0.7rem; font-weight:600;
+            display:inline-flex; align-items:center; gap:0.2rem;
+        }
+        .gender-tag.male { background:var(--male-bg); color:var(--male); }
+        .gender-tag.unknown { background:var(--unknown-bg); color:var(--unknown); }
+        .gender-tag.female { background:var(--female-bg); color:var(--female); }
+        .mouse-item .count-badge {
+            background:var(--accent-glow); color:var(--accent);
+            padding:0.15rem 0.5rem; border-radius:5px; font-size:0.7rem; font-weight:700;
+        }
+        .week-tag {
+            padding:0.15rem 0.45rem; border-radius:5px;
+            font-size:0.7rem; font-weight:600;
+            background:rgba(212,148,58,0.1); color:var(--accent);
+            display:inline-flex; align-items:center; gap:0.2rem;
+        }
+        .week-tag .auto-mark { font-size:0.55rem; opacity:0.7; }
+        .mouse-item .remove-mouse {
+            background:none; border:none; color:var(--fg2);
+            cursor:pointer; font-size:0.8rem; padding:0.15rem 0.3rem;
+            border-radius:4px; transition:all 0.2s;
+            margin-left:0.2rem; font-family:inherit;
+            display:inline-flex; align-items:center; justify-content:center;
+            width:22px; height:22px;
+            position:relative;
+        }
+        .mouse-item .remove-mouse:hover { color:var(--danger); background:var(--danger-bg); }
+        .mouse-item .remove-mouse::after {
+            content:'';
+            position:absolute;
+            inset:-4px;
+            border-radius:8px;
+            pointer-events:none;
+            opacity:0;
+            background:
+                linear-gradient(var(--danger), var(--danger)) left top / calc(var(--hold-progress, 0) * 100%) 2px no-repeat,
+                linear-gradient(var(--danger), var(--danger)) right top / 2px calc(var(--hold-progress, 0) * 100%) no-repeat,
+                linear-gradient(var(--danger), var(--danger)) right bottom / calc(var(--hold-progress, 0) * 100%) 2px no-repeat,
+                linear-gradient(var(--danger), var(--danger)) left bottom / 2px calc(var(--hold-progress, 0) * 100%) no-repeat;
+            box-shadow:0 0 0 1px rgba(239,68,68,0.12) inset;
+            transition:opacity 0.12s ease;
+        }
+        .mouse-item .remove-mouse.holding::after {
+            opacity:1;
+        }
+        .mouse-item .remove-mouse.is-disabled {
+            color:#9ca3af !important;
+            background:transparent !important;
+            cursor:not-allowed !important;
+            pointer-events:none !important;
+        }
+
+        .cage-footer {
+            padding:0.8rem 1.4rem; border-top:1px solid var(--border);
+            display:flex; justify-content:space-between; align-items:center;
+            margin-top:auto;
+        }
+        .cage-total { font-size:0.78rem; color:var(--fg2); }
+        .cage-total strong { color:var(--fg); font-weight:700; }
+
+        .empty-state { text-align:center; padding:4rem 2rem; color:var(--fg2); }
+        .empty-state p { font-size:0.9rem; margin-bottom:1.5rem; }
+
+        .cage-empty-mice { text-align:center; padding:1rem 0; color:var(--fg2); font-size:0.8rem; }
+
+        /* 模态框通用 */
+        .modal-overlay {
+            position:fixed; inset:0; background:rgba(15,23,42,0.18);
+            backdrop-filter:blur(8px); z-index:100;
+            display:none; align-items:center; justify-content:center;
+            padding:1rem; animation:fadeIn 0.2s ease;
+        }
+        .modal-overlay.active { display:flex; }
+        @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+
+        .modal {
+            background:var(--bg2); border:1px solid var(--border);
+            border-radius:18px; width:100%; max-width:500px;
+            max-height:90vh; overflow-y:auto;
+            animation:modalIn 0.3s ease;
+        }
+        @keyframes modalIn { from{opacity:0;transform:scale(0.95) translateY(10px)} to{opacity:1;transform:scale(1) translateY(0)} }
+
+        .modal-header {
+            padding:1.4rem 1.5rem 0.8rem;
+            display:flex; justify-content:space-between; align-items:center;
+        }
+        .modal-header h2 { font-size:1.15rem; font-weight:700; }
+        .modal-close {
+            width:30px; height:30px; border-radius:8px;
+            background:var(--card); border:1px solid var(--border);
+            color:var(--fg2); cursor:pointer;
+            display:flex; align-items:center; justify-content:center;
+            font-size:16px; transition:all 0.2s; font-family:inherit;
+        }
+        .modal-close:hover { background:var(--danger-bg); color:var(--danger); border-color:rgba(239,68,68,0.2); }
+        .modal-body { padding:0.5rem 1.5rem 1.5rem; }
+
+        .form-group { margin-bottom:1rem; }
+        .form-group label {
+            display:flex; align-items:center; gap:0.35rem;
+            font-size:0.78rem; font-weight:500;
+            color:var(--fg2); margin-bottom:0.4rem;
+        }
+        .form-group label .hint { font-weight:400; font-size:0.7rem; color:var(--fg2); opacity:0.6; }
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width:100%; padding:0.6rem 0.85rem;
+            background:var(--card); border:1px solid var(--border);
+            border-radius:10px; color:var(--fg);
+            font-size:0.85rem; font-family:inherit; outline:none; transition:all 0.2s;
+        }
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-glow);
+        }
+        .form-group textarea { resize:vertical; min-height:60px; }
+        .form-group input[type="date"]::-webkit-calendar-picker-indicator { filter:invert(0.7); cursor:pointer; }
+
+        .age-link {
+            display:flex; align-items:center; justify-content:center;
+            gap:0.4rem; padding:0.35rem 0;
+            color:var(--accent); font-size:0.72rem; font-weight:500;
+            margin-bottom:0.8rem; opacity:0.8;
+        }
+
+        .modal-footer {
+            padding:0.8rem 1.5rem 1.2rem;
+            display:flex; gap:0.5rem; justify-content:flex-end; align-items:center;
+        }
+        .modal-footer.edit-mode { justify-content:space-between; }
+
+        .gender-selector { display:flex; gap:0.5rem; }
+        .gender-option {
+            flex:1; padding:0.55rem;
+            background:var(--card); border:1px solid var(--border);
+            border-radius:10px; cursor:pointer;
+            text-align:center; font-size:0.82rem;
+            transition:all 0.2s; font-family:inherit; color:var(--fg2);
+            display:flex; align-items:center; justify-content:center; gap:0.4rem;
+        }
+        .gender-option:hover { border-color:var(--fg2); }
+        .gender-option.active-male { border-color:var(--male); background:var(--male-bg); color:var(--male); font-weight:600; }
+        .gender-option.active-unknown { border-color:var(--unknown); background:var(--unknown-bg); color:var(--unknown); font-weight:600; }
+        .gender-option.active-female { border-color:var(--female); background:var(--female-bg); color:var(--female); font-weight:600; }
+
+        .inline-check {
+            display:inline-flex; align-items:center; gap:0.45rem;
+            padding:0.45rem 0.7rem; background:var(--card);
+            border:1px solid var(--border); border-radius:10px;
+            color:var(--fg); font-size:0.8rem;
+            line-height:1.2;
+        }
+        .inline-check input {
+            accent-color: var(--accent);
+            width:14px; height:14px; flex:0 0 auto;
+        }
+        .sub-check { margin-top:0.55rem; }
+        .id-config {
+            display:none; margin-top:0.7rem;
+            padding:0.85rem; background:var(--bg2);
+            border:1px dashed var(--border); border-radius:12px;
+        }
+        .id-config.active { display:block; }
+        .id-config-actions {
+            display:flex; justify-content:space-between; align-items:center;
+            gap:0.75rem; margin-bottom:0.65rem;
+        }
+        .id-config-buttons {
+            display:flex; align-items:center; gap:0.45rem; flex-wrap:wrap;
+        }
+        .id-config-tip { font-size:0.72rem; color:var(--fg2); line-height:1.6; }
+        .id-status {
+            margin-top:0.45rem; font-size:0.72rem; line-height:1.5;
+            color:var(--fg2);
+        }
+        .id-status.error { color:var(--danger); }
+        .id-status.success { color:var(--success); }
+        .id-chip-list { display:flex; flex-wrap:wrap; gap:0.35rem; margin-top:0.45rem; }
+        .id-chip {
+            display:inline-flex; align-items:center;
+            padding:0.12rem 0.45rem; border-radius:999px;
+            background:var(--accent-glow); color:var(--accent);
+            font-size:0.68rem; font-weight:600;
+        }
+        .search-hit {
+            background:rgba(255,122,89,0.2);
+            color:#b64728;
+            border-radius:4px;
+            padding:0 0.12rem;
+        }
+        .selection-summary {
+            width:100%;
+            display:flex; align-items:center; justify-content:space-between;
+            gap:0.75rem; flex-wrap:wrap;
+            padding:0.8rem 1rem;
+            background:linear-gradient(135deg, rgba(255,122,89,0.08), rgba(78,168,222,0.06));
+            border:1px solid var(--border); border-radius:12px;
+        }
+        .selection-summary[hidden] { display:none !important; }
+        .selection-summary-text { font-size:0.8rem; color:var(--fg2); }
+        .selection-summary-text strong { color:var(--fg); font-weight:700; }
+        .selection-actions {
+            display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;
+        }
+        .topbar-right .btn.btn-ghost {
+            background:#fff;
+            border:1px solid var(--border);
+        }
+        .topbar-right .btn.is-active {
+            background: linear-gradient(135deg, var(--accent), #ef5b3f);
+            color:#fff;
+            border-color:transparent;
+            box-shadow: 0 2px 12px rgba(255,122,89,0.24);
+        }
+        .topbar-right .btn.is-disabled,
+        .cage-card .btn.is-disabled,
+        .cage-card .btn-icon.is-disabled {
+            background:#f3f4f6 !important;
+            color:#9ca3af !important;
+            border-color:#e5e7eb !important;
+            box-shadow:none !important;
+            cursor:not-allowed !important;
+            pointer-events:none !important;
+            transform:none !important;
+        }
+        .cage-select {
+            width:18px; height:18px;
+            accent-color:var(--accent);
+            cursor:pointer; flex:0 0 auto; margin-top:0.35rem;
+        }
+        .cage-card.selected {
+            border-color: rgba(255,122,89,0.45);
+            box-shadow: 0 16px 36px rgba(255,122,89,0.12);
+        }
+        #mouseIndividualIds {
+            min-height: 140px;
+            line-height: 1.55;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        }
+        .move-panel {
+            display:none; margin-right:0.6rem;
+            align-items:center; gap:0.45rem;
+        }
+        .move-panel.active { display:flex; }
+        .move-panel select {
+            min-width:120px; max-width:180px;
+            padding:0.4rem 1.7rem 0.4rem 0.65rem;
+            background:var(--card); border:1px solid var(--border);
+            border-radius:8px; color:var(--fg);
+            font-size:0.76rem; font-family:inherit; outline:none; cursor:pointer; appearance:none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M6 8L1 3h10z' fill='%236b7280'/%3E%3C/svg%3E");
+            background-repeat:no-repeat; background-position:right 8px center;
+        }
+
+        .toast-container { position:fixed; top:80px; right:1.5rem; z-index:200; display:flex; flex-direction:column; gap:0.5rem; }
+        .toast {
+            padding:0.7rem 1.2rem; border-radius:10px;
+            font-size:0.82rem; font-weight:500;
+            animation:toastIn 0.3s ease, toastOut 0.3s ease 2.5s forwards;
+            display:flex; align-items:center; gap:0.5rem;
+            box-shadow:0 8px 24px rgba(15,23,42,0.08);
+        }
+        .toast.success { background:rgba(52,211,153,0.15); color:var(--success); border:1px solid rgba(52,211,153,0.3); }
+        .toast.error { background:var(--danger-bg); color:var(--danger); border:1px solid rgba(239,68,68,0.3); }
+        .toast.info { background:rgba(78,168,222,0.12); color:var(--male); border:1px solid rgba(78,168,222,0.3); }
+        .toast .toast-icon { font-weight:700; font-size:0.9rem; }
+        @keyframes toastIn { from{opacity:0;transform:translateX(30px)} to{opacity:1;transform:translateX(0)} }
+        @keyframes toastOut { from{opacity:1} to{opacity:0;transform:translateX(30px)} }
+
+        .confirm-modal .modal { max-width:380px; }
+        .confirm-content { text-align:center; padding:1rem 0; }
+        .confirm-content .warn-icon { font-size:2.5rem; color:var(--danger); margin-bottom:1rem; display:block; }
+        .confirm-content p { color:var(--fg2); font-size:0.9rem; line-height:1.5; }
+        .confirm-content p strong { color:var(--fg); }
+
+        .detail-section { margin-bottom:1.2rem; }
+        .detail-section h3 { font-size:0.82rem; color:var(--fg2); margin-bottom:0.6rem; font-weight:500; text-transform:uppercase; letter-spacing:0.05em; }
+        .detail-info { display:grid; grid-template-columns:1fr 1fr; gap:0.5rem; }
+        .detail-info-item { padding:0.6rem 0.8rem; background:var(--card); border-radius:8px; }
+        .detail-info-item .label { font-size:0.7rem; color:var(--fg2); }
+        .detail-info-item .value { font-size:0.95rem; font-weight:700; margin-top:0.15rem; }
+
+        /* 导出弹窗提示区块 */
+        .export-tip {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 0.8rem 1rem;
+            margin-top: 0.8rem;
+            font-size: 0.75rem;
+            color: var(--fg2);
+            line-height: 1.7;
+        }
+        .export-tip strong { color: var(--accent); font-weight: 600; }
+        .export-tip .tip-title {
+            display: flex; align-items: center; gap: 0.3rem;
+            margin-bottom: 0.4rem; color: var(--fg); font-weight: 600; font-size: 0.8rem;
+        }
+        .pdf-preview-modal .modal {
+            max-width: min(980px, calc(100vw - 2rem));
+            max-height: min(92vh, 1100px);
+            display:flex;
+            flex-direction:column;
+        }
+        .pdf-preview-modal .modal-body {
+            flex:1 1 auto;
+            overflow:auto;
+            padding-top:0.9rem;
+            background:#eef1f5;
+        }
+        .pdf-preview-actions {
+            display:flex;
+            align-items:center;
+            gap:0.6rem;
+            margin-left:auto;
+        }
+        .pdf-preview-shell {
+            max-width:190mm;
+            margin:0 auto;
+        }
+        .pdf-preview-page {
+            background:#fff;
+            color:#111;
+            border:1px solid #d7dce3;
+            box-shadow:0 18px 48px rgba(15,23,42,0.12);
+            padding:10mm;
+        }
+        .pdf-preview-page .page {
+            display:grid;
+            grid-template-columns:minmax(0, 1fr) 38mm;
+            gap:6mm;
+            align-items:start;
+        }
+        .pdf-preview-page .print-main {
+            min-width:0;
+        }
+        .pdf-preview-page .print-notes-column {
+            min-height:228mm;
+        }
+        .pdf-preview-page .print-cage:last-child {
+            margin-bottom:0;
+        }
+        .pdf-preview-page,
+        .pdf-preview-page * {
+            font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif;
+        }
+        .pdf-preview-page .print-header {
+            border:1.5px solid #111;
+            padding:7px 8px;
+            margin-bottom:7px;
+        }
+        .pdf-preview-page .print-title {
+            font-size:15px;
+            font-weight:800;
+            letter-spacing:0.02em;
+            margin-bottom:3px;
+        }
+        .pdf-preview-page .print-meta {
+            display:grid;
+            grid-template-columns:repeat(2, minmax(0, 1fr));
+            gap:2px 10px;
+            font-size:9.5px;
+        }
+        .pdf-preview-page .print-summary {
+            margin-top:3px;
+            font-weight:700;
+            font-size:9.5px;
+        }
+        .pdf-preview-page .print-meta-wide {
+            grid-column:1 / -1;
+        }
+        .pdf-preview-page .print-cage {
+            border:1.5px solid #111;
+            padding:6px 6px 5px;
+            margin-bottom:6px;
+            break-inside:avoid;
+            page-break-inside:avoid;
+        }
+        .pdf-preview-page .print-cage-head {
+            margin-bottom:4px;
+        }
+        .pdf-preview-page .print-cage-title {
+            font-size:12.5px;
+            font-weight:800;
+            margin-bottom:2px;
+        }
+        .pdf-preview-page .print-cage-meta {
+            display:flex;
+            justify-content:space-between;
+            gap:6px;
+            flex-wrap:wrap;
+            font-size:9.5px;
+        }
+        .pdf-preview-page .print-cage-notes {
+            margin-top:2px;
+            font-size:9.5px;
+            color:#333;
+        }
+        .pdf-preview-page .print-table {
+            width:100%;
+            border-collapse:collapse;
+            table-layout:fixed;
+            font-size:10.2px;
+        }
+        .pdf-preview-page .print-table th,
+        .pdf-preview-page .print-table td {
+            border:1px solid #222;
+            padding:3px 4px;
+            vertical-align:top;
+            word-break:normal;
+            overflow-wrap:normal;
+        }
+        .pdf-preview-page .print-table th {
+            background:#f3f3f3;
+            font-weight:800;
+            text-align:left;
+            white-space:nowrap;
+        }
+        .pdf-preview-page .print-table th:nth-child(1),
+        .pdf-preview-page .print-table td:nth-child(1) { width:24%; }
+        .pdf-preview-page .print-table th:nth-child(2),
+        .pdf-preview-page .print-table td:nth-child(2) { width:11%; text-align:center; white-space:nowrap; }
+        .pdf-preview-page .print-table th:nth-child(3),
+        .pdf-preview-page .print-table td:nth-child(3) { width:8%; text-align:center; white-space:nowrap; }
+        .pdf-preview-page .print-table th:nth-child(4),
+        .pdf-preview-page .print-table td:nth-child(4) { width:9%; text-align:center; white-space:nowrap; }
+        .pdf-preview-page .print-table th:nth-child(5),
+        .pdf-preview-page .print-table td:nth-child(5) { width:48%; }
+        .pdf-preview-page .print-table td.ids-cell {
+            font-size:8.8px;
+            line-height:1.18;
+            word-break:normal;
+            overflow-wrap:normal;
+            white-space:normal;
+        }
+        .pdf-preview-page .id-print-list {
+            display:flex;
+            flex-wrap:wrap;
+            gap:2px 6px;
+            align-items:flex-start;
+        }
+        .pdf-preview-page .id-print-chip {
+            display:inline-block;
+            white-space:nowrap;
+            letter-spacing:-0.01em;
+        }
+        .pdf-preview-page .model-empty {
+            text-align:center;
+            color:#666;
+            padding:10px 0;
+        }
+        .pdf-preview-page .birth-reference {
+            margin-top:8px;
+        }
+        .pdf-preview-page .birth-reference-list {
+            font-size:8.4px;
+            line-height:1.35;
+            color:#222;
+        }
+        .pdf-preview-page .birth-reference-item {
+            white-space:nowrap;
+            overflow:hidden;
+            text-overflow:ellipsis;
+            margin-top:2px;
+        }
+        .pdf-preview-page .birth-reference-item:first-child {
+            margin-top:0;
+        }
+        @page {
+            size: A4 portrait;
+            margin: 12mm;
+        }
+        @media print {
+            html,
+            body {
+                width:auto;
+                height:auto;
+                overflow:visible !important;
+                background:#fff !important;
+            }
+            body.printing-pdf::before,
+            body.printing-pdf::after,
+            body.printing-pdf .floating-particle,
+            body.printing-pdf .toast-container,
+            body.printing-pdf .drag-overlay {
+                display:none !important;
+                content:none !important;
+            }
+            body.printing-pdf > *:not(#pdfPreviewModal) {
+                display:none !important;
+            }
+            body.printing-pdf #pdfPreviewModal {
+                display:block !important;
+                position:static;
+                margin:0;
+                padding:0;
+                width:auto;
+                background:#fff;
+                overflow:visible !important;
+                inset:auto;
+                min-height:0;
+                backdrop-filter:none !important;
+            }
+            body.printing-pdf #pdfPreviewModal .modal {
+                max-width:none;
+                max-height:none;
+                width:auto;
+                height:auto;
+                border:none;
+                box-shadow:none;
+                background:transparent;
+                overflow:visible !important;
+            }
+            body.printing-pdf #pdfPreviewModal .modal-header,
+            body.printing-pdf #pdfPreviewModal .modal-footer {
+                display:none !important;
+            }
+            body.printing-pdf #pdfPreviewModal .modal-body {
+                padding:0;
+                overflow:visible;
+                background:transparent;
+                margin:0;
+            }
+            body.printing-pdf .pdf-preview-shell {
+                width:186mm;
+                max-width:186mm;
+                margin:0 auto;
+            }
+            body.printing-pdf .pdf-preview-page {
+                box-shadow:none;
+                border:none;
+                min-height:auto;
+                padding:0;
+                width:186mm;
+                overflow:visible;
+                background:#fff;
+            }
+            body.printing-pdf .page {
+                position:relative;
+                display:block;
+                width:100%;
+                max-width:none !important;
+                margin:0;
+                padding:0 44mm 0 0;
+                min-height:0 !important;
+                box-sizing:border-box;
+            }
+            body.printing-pdf .print-main {
+                width:auto;
+                min-width:0;
+            }
+            body.printing-pdf .print-notes-column {
+                position:absolute;
+                top:0;
+                right:0;
+                width:38mm;
+                min-height:0 !important;
+                height:223mm;
+                break-inside:auto;
+                page-break-inside:auto;
+            }
+            body.printing-pdf .print-cage {
+                break-inside:avoid-page;
+                page-break-inside:avoid;
+            }
+            body.printing-pdf .print-cage:last-child,
+            body.printing-pdf .print-header:last-child {
+                margin-bottom:0 !important;
+            }
+        }
+        .drag-overlay {
+            position:fixed; inset:0; z-index:300;
+            display:none; align-items:center; justify-content:center;
+            background:rgba(15,23,42,0.18);
+            backdrop-filter:blur(10px);
+            padding:1.5rem;
+        }
+        .drag-overlay.active { display:flex; }
+        .drag-panel {
+            width:min(560px, 100%);
+            padding:2rem 2.2rem;
+            border:2px dashed rgba(255,122,89,0.45);
+            border-radius:24px;
+            background:rgba(255,255,255,0.96);
+            box-shadow:0 20px 50px rgba(15,23,42,0.12);
+            text-align:center;
+        }
+        .drag-panel h2 {
+            font-size:1.25rem; font-weight:800; color:var(--fg);
+            margin-bottom:0.55rem;
+        }
+        .drag-panel p {
+            font-size:0.88rem; color:var(--fg2); line-height:1.7;
+        }
+
+        .floating-particle {
+            position:fixed; width:2px; height:2px;
+            background:var(--accent); border-radius:50%;
+            pointer-events:none; z-index:0; opacity:0;
+            animation:floatParticle 8s infinite;
+        }
+        .page-footer {
+            margin-top:1.5rem;
+            padding:0.9rem 0 0.2rem;
+            text-align:right;
+            font-size:0.78rem;
+            color:var(--fg2);
+        }
+        .page-footer strong {
+            color:var(--fg);
+            font-weight:600;
+        }
+        @keyframes floatParticle {
+            0%{opacity:0;transform:translateY(100vh)} 10%{opacity:0.3} 90%{opacity:0.3}
+            100%{opacity:0;transform:translateY(-10vh)}
+        }
+
+        @media (max-width:768px) {
+            .topbar{
+                height:auto;
+                padding:0.85rem 1rem;
+                align-items:flex-start;
+                gap:0.85rem;
+                flex-direction:column;
+            }
+            .topbar-brand{width:100%}
+            .topbar-brand h1{font-size:1.05rem}
+            .topbar-right{
+                width:100%;
+                display:grid;
+                grid-template-columns:repeat(4,minmax(0,1fr));
+                gap:0.5rem;
+            }
+            .topbar-right .btn{
+                width:100%;
+                justify-content:center;
+                padding:0.6rem 0.5rem;
+            }
+            .stats-row{grid-template-columns:repeat(2,1fr)}
+            .location-group{padding:0.7rem}
+            .location-group-header{
+                flex-direction:column;
+                align-items:flex-start;
+                gap:0.35rem;
+            }
+            .location-group-grid{grid-template-columns:1fr}
+            .main-container{padding:1rem 1rem 2rem}
+            .page-footer{text-align:left}
+            .toolbar{
+                flex-direction:column;
+                align-items:stretch;
+                gap:0.65rem;
+            }
+            .search-box,
+            .filter-select{width:100%}
+            .quick-filters{gap:0.45rem}
+            .quick-filter{
+                flex:1 1 calc(50% - 0.45rem);
+                justify-content:center;
+                min-height:38px;
+            }
+            .selection-summary{
+                align-items:flex-start;
+                padding:0.9rem;
+            }
+            .selection-actions{
+                width:100%;
+                display:grid;
+                grid-template-columns:1fr 1fr;
+            }
+            .selection-actions .btn:last-child{grid-column:1 / -1}
+            .selection-actions .btn{
+                width:100%;
+                justify-content:center;
+            }
+            .cage-header,
+            .cage-body,
+            .cage-footer{padding-left:1rem;padding-right:1rem}
+            .cage-header{
+                flex-direction:column;
+                align-items:stretch;
+                gap:0.8rem;
+            }
+            .cage-main{
+                width:100%;
+                justify-content:space-between;
+            }
+            .cage-actions{
+                width:100%;
+                justify-content:flex-end;
+            }
+            .cage-actions-panel{
+                right:0;
+                left:auto;
+            }
+            .gender-labels{
+                flex-wrap:wrap;
+                gap:0.35rem 0.75rem;
+            }
+            .mouse-item{
+                align-items:flex-start;
+                gap:0.45rem;
+            }
+            .mouse-item .detail{
+                flex-wrap:wrap;
+                justify-content:flex-end;
+                row-gap:0.35rem;
+            }
+            .cage-footer{
+                flex-direction:column;
+                align-items:flex-start;
+                gap:0.65rem;
+            }
+            .cage-footer .btn{width:100%;justify-content:center}
+            .detail-info{grid-template-columns:1fr}
+            .modal{
+                max-height:calc(100vh - 1.5rem);
+                border-radius:16px;
+            }
+            .modal-header,
+            .modal-body,
+            .modal-footer{padding-left:1rem;padding-right:1rem}
+            .modal-header{padding-top:1rem}
+            .modal-footer{
+                flex-wrap:wrap;
+                justify-content:stretch;
+            }
+            .modal-footer > div{
+                width:100%;
+                margin-left:0 !important;
+                flex-wrap:wrap;
+            }
+            .modal-footer .btn{
+                flex:1 1 100%;
+                justify-content:center;
+            }
+            .move-panel.active{
+                width:100%;
+                margin-right:0;
+                flex-wrap:wrap;
+            }
+            .move-panel select{flex:1 1 100%;max-width:none}
+            .id-config-actions{
+                flex-direction:column;
+                align-items:flex-start;
+            }
+            .id-config-buttons{
+                width:100%;
+                display:grid;
+                grid-template-columns:1fr;
+            }
+            .id-config-buttons .btn{width:100%;justify-content:center}
+            .toast-container{
+                left:1rem;
+                right:1rem;
+                top:auto;
+                bottom:1rem;
+            }
+            .toast{width:100%}
+        }
+        @media (max-width:480px) {
+            .topbar{padding:0.75rem 0.85rem}
+            .topbar-right{
+                grid-template-columns:repeat(2,minmax(0,1fr));
+            }
+            .topbar-right .btn{
+                min-height:40px;
+                font-size:0.8rem;
+            }
+            .topbar-right .btn .btn-text{display:inline}
+            .stats-row{grid-template-columns:1fr 1fr;gap:0.5rem}
+            .stat-card{padding:0.9rem 1rem}
+            .stat-value{font-size:1.4rem}
+            .stat-label{font-size:0.72rem}
+            .quick-filter{
+                flex:1 1 100%;
+                justify-content:flex-start;
+            }
+            .selection-actions{grid-template-columns:1fr}
+            .selection-actions .btn:last-child{grid-column:auto}
+            .cage-card{border-radius:14px}
+            .cage-name{font-size:1rem}
+            .cage-location{padding-left:2.3rem}
+            .mouse-item{
+                flex-direction:column;
+                align-items:stretch;
+            }
+            .mouse-item .strain{
+                white-space:normal;
+                overflow:visible;
+                text-overflow:clip;
+            }
+            .mouse-item .detail{
+                justify-content:flex-start;
+            }
+            .drag-panel{
+                padding:1.5rem 1.2rem;
+                border-radius:18px;
+            }
+            .drag-panel h2{font-size:1.05rem}
+            .drag-panel p{font-size:0.82rem}
+        }
+    </style>
+</head>
+<body>
+
+    <div id="particles"></div>
+    <div class="toast-container" id="toastContainer"></div>
+    <div class="drag-overlay" id="dragOverlay">
+        <div class="drag-panel">
+            <h2>拖放 JSON 文件即可导入</h2>
+            <p>将小鼠笼位数据的 `.json` 文件拖到此处，松开后会立即按当前导入校验规则读取。</p>
+        </div>
+    </div>
+    <div class="modal-overlay" id="welcomeImportModal">
+        <div class="modal" style="max-width:420px;">
+            <div class="modal-header"><h2>导入数据</h2><button class="modal-close" onclick="closeWelcomeImportModal()">×</button></div>
+            <div class="modal-body">
+                <div class="confirm-content" style="padding:0.6rem 0 0.2rem;">
+                    <span class="warn-icon" style="color:var(--accent);">↓</span>
+                    <p>建议先导入你的 JSON 数据文件，再开始查看或编辑笼位信息。</p>
+                    <p style="margin-top:0.6rem;">你也可以直接把 JSON 文件拖到页面中完成导入。</p>
+                </div>
+            </div>
+            <div class="modal-footer" style="justify-content:center;">
+                <button class="btn btn-ghost" onclick="closeWelcomeImportModal()">稍后再说</button>
+                <button class="btn btn-primary" onclick="triggerWelcomeImport()">立即导入</button>
+            </div>
+        </div>
+    </div>
+
+        <header class="topbar">
+            <div class="topbar-brand">
+                <h1>小鼠笼位管理</h1>
+            </div>
+        <div class="topbar-right">
+            <button class="btn btn-ghost btn-sm" id="importBtn" onclick="importDataTrigger()" title="导入数据">
+                <span>↑</span> <span class="btn-text">导入</span>
+            </button>
+            <button class="btn btn-ghost btn-sm" id="exportBtn" onclick="openExportModal()" title="导出数据">
+                <span>↓</span> <span class="btn-text">导出</span>
+            </button>
+            <button class="btn btn-ghost btn-sm" id="csvModeBtn" onclick="toggleCsvSelectionMode()" title="导出文稿">
+                <span>⇣</span> <span class="btn-text">导出文稿</span>
+            </button>
+            <input type="file" id="importFileInput" class="hidden-input" accept=".json" onchange="importData(event)">
+            <button class="btn btn-primary" id="createCageBtn" onclick="openCageModal()">
+                <span>+</span> <span class="btn-text">新建笼位</span>
+            </button>
+        </div>
+    </header>
+
+    <main class="main-container">
+        <section class="stats-row">
+            <div class="stat-card"><div class="stat-label">笼位总数</div><div class="stat-value" id="statCages">0</div></div>
+            <div class="stat-card"><div class="stat-label">小鼠总数</div><div class="stat-value" id="statMice">0</div></div>
+            <div class="stat-card"><div class="stat-label">雄性数量</div><div class="stat-value" id="statMale">0</div></div>
+            <div class="stat-card"><div class="stat-label">性别未知</div><div class="stat-value" id="statUnknown">0</div></div>
+            <div class="stat-card"><div class="stat-label">雌性数量</div><div class="stat-value" id="statFemale">0</div></div>
+        </section>
+
+        <section class="toolbar">
+            <div class="search-box">
+                <span class="search-prefix">⌕</span>
+                <input type="text" id="searchInput" placeholder="搜索笼位编号、位置、品系或小鼠编号..." oninput="renderCages()">
+            </div>
+            <select class="filter-select" id="filterGender" onchange="renderCages()">
+                <option value="all">全部性别</option>
+                <option value="male">含雄性</option>
+                <option value="unknown">含性别未知</option>
+                <option value="female">含雌性</option>
+            </select>
+            <select class="filter-select" id="filterWeeks" onchange="renderCages()">
+                <option value="all">全部周龄</option>
+                <option value="0-4">0-4周</option>
+                <option value="4-8">4-8周</option>
+                <option value="8-12">8-12周</option>
+                <option value="12-999">12周以上</option>
+            </select>
+            <select class="filter-select" id="sortBy" onchange="renderCages()">
+                <option value="manual">手动排序</option>
+                <option value="newest">最新创建</option>
+                <option value="name">按编号排序</option>
+                <option value="count">按数量排序</option>
+            </select>
+            <div class="quick-filters">
+                <label class="quick-filter">
+                    <input type="checkbox" id="filterHasIds" onchange="renderCages()">
+                    <span>仅看有个体编号</span>
+                </label>
+                <label class="quick-filter">
+                    <input type="checkbox" id="filterEmptyCage" onchange="renderCages()">
+                    <span>仅看空笼</span>
+                </label>
+                <label class="quick-filter">
+                    <input type="checkbox" id="filterBreeding" onchange="renderCages()">
+                    <span>仅看繁殖笼</span>
+                </label>
+            </div>
+            <div class="selection-summary" id="selectionSummaryPanel" hidden>
+                <div class="selection-summary-text" id="selectionSummary">已勾选 <strong>0</strong> 个笼位用于导出</div>
+                <div class="selection-actions">
+                    <button class="btn btn-ghost btn-sm" type="button" onclick="selectVisibleCages()">勾选当前结果</button>
+                    <button class="btn btn-ghost btn-sm" type="button" onclick="clearSelectedCages()">清空勾选</button>
+                    <button class="btn btn-ghost btn-sm" type="button" onclick="exitCsvSelectionMode()">取消</button>
+                    <button class="btn btn-primary btn-sm" type="button" onclick="openExportModal('csv')">导出勾选</button>
+                </div>
+            </div>
+        </section>
+
+        <section class="cage-grid" id="cageGrid"></section>
+        <footer class="page-footer">上次修改时间：<strong id="lastModifiedText">-</strong></footer>
+    </main>
+
+    <!-- 新建/编辑笼位 -->
+    <div class="modal-overlay" id="cageModal">
+        <div class="modal">
+            <div class="modal-header"><h2 id="cageModalTitle">新建笼位</h2><button class="modal-close" onclick="closeCageModal()">×</button></div>
+            <div class="modal-body">
+                <input type="hidden" id="cageEditId">
+                <div class="form-group"><label>笼位编号</label><input type="text" id="cageName" placeholder="例如: A-001"></div>
+                <div class="form-group"><label>放置位置</label><input type="text" id="cageLocation" placeholder="例如: 动物房3层B区"></div>
+                <div class="form-group"><label>备注</label><textarea id="cageNotes" placeholder="可选备注信息..."></textarea></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-ghost" onclick="closeCageModal()">取消</button>
+                <button class="btn btn-primary" onclick="saveCage()">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 添加/编辑小鼠组 -->
+    <div class="modal-overlay" id="mouseModal">
+        <div class="modal">
+            <div class="modal-header"><h2 id="mouseModalTitle">添加小鼠组</h2><button class="modal-close" onclick="closeMouseModal()">×</button></div>
+            <div class="modal-body">
+                <input type="hidden" id="mouseCageId">
+                <input type="hidden" id="mouseEditIdx" value="-1">
+                <div class="form-group"><label>品系 / 品种</label><input type="text" id="mouseStrain" list="strainList" placeholder="例如: C57BL/6, BALB/c, ICR"></div>
+                <div class="form-group">
+                    <label>数量 (只)</label>
+                    <input type="number" id="mouseCount" min="1" placeholder="1">
+                    <label class="inline-check sub-check">
+                        <input type="checkbox" id="mouseCountUnknown" onchange="toggleUnknownCount()">
+                        <span>数量未知</span>
+                    </label>
+                </div>
+                <div class="form-group"><label>出生日期 <span class="hint">(填日期可自动计算周龄)</span></label><input type="date" id="mouseBirthDate"></div>
+                <div class="age-link"><span>↕ 修改任一项，另一项自动计算</span></div>
+                <div class="form-group"><label>周龄 (周) <span class="hint">(填周龄可反推出生日期)</span></label><input type="number" id="mouseWeeks" min="0" step="0.5" placeholder="例如: 8"></div>
+                <div class="form-group">
+                    <label>性别</label>
+                    <div class="gender-selector">
+                        <button type="button" class="gender-option" id="genderMale" onclick="selectGender('male')">♂ 雄性</button>
+                        <button type="button" class="gender-option" id="genderUnknown" onclick="selectGender('unknown')">？ 未知</button>
+                        <button type="button" class="gender-option" id="genderFemale" onclick="selectGender('female')">♀ 雌性</button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>个体编号</label>
+                    <label class="inline-check">
+                        <input type="checkbox" id="enableIndividualIds" onchange="toggleIndividualIdsField()">
+                        <span>为该组小鼠启用单独编号</span>
+                    </label>
+                    <div class="id-config" id="individualIdsConfig">
+                        <div class="id-config-actions">
+                            <div class="id-config-tip">可手动填写，也可按笼位和性别自动生成。每行一个编号，或用逗号分隔。</div>
+                            <div class="id-config-buttons">
+                                <button type="button" class="btn btn-ghost btn-sm" onclick="generateIndividualIds()">自动生成</button>
+                                <button type="button" class="btn btn-ghost btn-sm" onclick="fillMissingIndividualIds()">补齐缺失</button>
+                                <button type="button" class="btn btn-ghost btn-sm" onclick="checkDuplicateIndividualIds()">检查重复</button>
+                            </div>
+                        </div>
+                        <div class="form-group" style="margin-bottom:0.65rem;">
+                            <label>编号前缀 <span class="hint">(可选，默认取笼位编号)</span></label>
+                            <input type="text" id="mouseIdPrefix" placeholder="例如: A-001-M">
+                        </div>
+                        <div class="form-group" style="margin-bottom:0;">
+                            <label>个体编号列表 <span class="hint">(数量需与本组小鼠数量一致)</span></label>
+                            <textarea id="mouseIndividualIds" placeholder="例如：&#10;A-001-M01&#10;A-001-M02&#10;A-001-M03"></textarea>
+                            <div class="id-status" id="mouseIdStatus">已解析 0 个编号 / 需要 0 个</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer" id="mouseModalFooter">
+                <div id="deleteGroupWrap" style="display:none;">
+                    <button class="btn btn-delete-group" id="deleteGroupBtn" onclick="handleDeleteGroup()"><span id="deleteGroupText">删除此组</span></button>
+                </div>
+                <div class="move-panel" id="moveGroupWrap">
+                    <select id="moveTargetCage"></select>
+                    <button class="btn btn-ghost btn-sm" type="button" onclick="moveMouseGroup()">迁移</button>
+                </div>
+                <div style="display:flex;gap:0.5rem;margin-left:auto;">
+                    <button class="btn btn-ghost" onclick="closeMouseModal()">取消</button>
+                    <button class="btn btn-primary" id="mouseSaveBtn" onclick="saveMouse()">确认添加</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 导出数据弹窗 -->
+    <div class="modal-overlay" id="exportModal">
+        <div class="modal" style="max-width:460px;">
+            <div class="modal-header"><h2>导出数据</h2><button class="modal-close" onclick="closeExportModal()">×</button></div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>导出格式</label>
+                    <select id="exportFormat" class="filter-select" onchange="updateExportPreview()">
+                        <option value="json">JSON 全量数据</option>
+                        <option value="csv">CSV 勾选笼位统计</option>
+                        <option value="pdf">PDF 笼位打印稿</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>文件名</label>
+                    <input type="text" id="exportFilename" placeholder="小鼠笼位数据">
+                </div>
+                <div class="form-group">
+                    <label>文件预览</label>
+                    <input type="text" id="exportPreview" readonly style="color:var(--accent);font-weight:600;">
+                </div>
+                <div class="export-tip">
+                    <div class="tip-title">↓ 文件保存位置说明</div>
+                    <p id="exportModeHint" style="margin-bottom:0.4rem;">JSON 会导出全部笼位原始数据；CSV 和 PDF 会导出当前勾选的笼位。</p>
+                    <p>浏览器出于安全限制，<strong>无法由网页指定下载路径</strong>。文件将保存到浏览器的默认下载文件夹。</p>
+                    <p style="margin-top:0.4rem;">如需更改保存位置，请在浏览器中设置：</p>
+                    <p><strong>Chrome</strong>：设置 → 下载内容 → 更改下载位置</p>
+                    <p><strong>Edge</strong>：设置 → 下载 → 更改下载文件夹</p>
+                    <p><strong>Firefox</strong>：设置 → 常规 → 下载 → 选择保存位置</p>
+                    <p style="margin-top:0.4rem;">也可在浏览器下载设置中勾选 <strong>"每次下载都询问保存位置"</strong>，这样每次导出时都会弹出文件夹选择框。</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-ghost" onclick="closeExportModal()">取消</button>
+                <button class="btn btn-primary" onclick="executeExport()">确认导出</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 笼位详情 -->
+    <div class="modal-overlay" id="detailModal">
+        <div class="modal" style="max-width:560px;">
+            <div class="modal-header"><h2 id="detailTitle">笼位详情</h2><button class="modal-close" onclick="closeDetailModal()">×</button></div>
+            <div class="modal-body" id="detailBody"></div>
+        </div>
+    </div>
+
+    <div class="modal-overlay pdf-preview-modal" id="pdfPreviewModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 id="pdfPreviewTitle">PDF 笼位打印稿</h2>
+                <button class="modal-close" onclick="closePdfPreview()">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="pdf-preview-shell">
+                    <div class="pdf-preview-page" id="pdfPreviewContent"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-ghost" onclick="closePdfPreview()">关闭</button>
+                <div class="pdf-preview-actions">
+                    <button class="btn btn-primary" onclick="printPdfPreview()">打印 / 导出 PDF</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 确认删除 -->
+    <div class="modal-overlay confirm-modal" id="confirmModal">
+        <div class="modal">
+            <div class="modal-body">
+                <div class="confirm-content">
+                    <span class="warn-icon">⚠</span>
+                    <p id="confirmText">确认删除？</p>
+                </div>
+            </div>
+            <div class="modal-footer" style="justify-content:center;">
+                <button class="btn btn-ghost" onclick="closeConfirm()">取消</button>
+                <button class="btn btn-danger" id="confirmBtn">确认删除</button>
+            </div>
+        </div>
+    </div>
+
+    <datalist id="strainList">
+        <option value="C57BL/6"><option value="BALB/c"><option value="ICR"><option value="KM">
+        <option value="DBA/2"><option value="FVB/N"><option value="NOD"><option value="NU/NU">
+        <option value="C3H/He"><option value="SD大鼠"><option value="Wistar大鼠">
+    </datalist>
+
+    <script>
+        // ========== 数据层 ==========
+        let cages = [];
+        let selectedGender = '';
+        let deleteConfirming = false;
+        let deleteTimer = null;
+        let autoFilling = false;
+        let dynamicWeekRefreshTimer = null;
+        let hasUnexportedChanges = false;
+        let lastModifiedAt = null;
+        let locationOrder = [];
+        let selectedCageIds = new Set();
+        let csvSelectionMode = false;
+        let dragCounter = 0;
+        let leaveExportReminderPending = false;
+        let draggedCageId = '';
+        let dragTargetCageId = '';
+        let dragInsertMode = 'before';
+        let draggedLocationGroup = '';
+        let draggedLocationSection = '';
+        let dragTargetLocationSection = '';
+        let dragLocationInsertMode = 'before';
+        let removeHoldState = null;
+        let openActionMenuCageId = '';
+        let activePdfExportName = '';
+        const STORAGE_KEY = 'mouse_cage_data_v5';
+        const MODIFIED_AT_KEY = 'mouse_cage_modified_at_v1';
+        const LOCATION_ORDER_KEY = 'mouse_cage_location_order_v1';
+        const MS_PER_WEEK = 7 * 24 * 60 * 60 * 1000;
+        const REMOVE_HOLD_DURATION = 700;
+        const LOCATION_GROUP_COLORS = [
+            '#ff7a59', '#4ea8de', '#34d399', '#f59e0b', '#e85d75', '#8b5cf6', '#14b8a6', '#ef4444'
+        ];
+
+        function loadData() {
+            const saved = localStorage.getItem(STORAGE_KEY);
+            if (saved) { try { cages = JSON.parse(saved); } catch(e) { cages = []; } }
+            const savedModifiedAt = parseInt(localStorage.getItem(MODIFIED_AT_KEY) || '', 10);
+            const savedLocationOrder = localStorage.getItem(LOCATION_ORDER_KEY);
+            lastModifiedAt = Number.isFinite(savedModifiedAt) ? savedModifiedAt : null;
+            if (savedLocationOrder) {
+                try { locationOrder = JSON.parse(savedLocationOrder); } catch(e) { locationOrder = []; }
+            } else {
+                locationOrder = [];
+            }
+            cages = normalizeCages(cages);
+            syncCageSortOrder();
+            locationOrder = normalizeLocationOrder(locationOrder, cages);
+            hasUnexportedChanges = false;
+            if (cages.length === 0) {
+                const now = Date.now();
+                cages = [
+                    { id:genId(), name:'A-001', location:'动物房3层A区', notes:'SPF级环境', createdAt:now,
+                      mice:[ {strain:'C57BL/6',count:5,birthDate:dateBefore(now,8),weeks:8,gender:'male'}, {strain:'C57BL/6',count:3,birthDate:dateBefore(now,8),weeks:8,gender:'female'} ] },
+                    { id:genId(), name:'A-002', location:'动物房3层A区', notes:'实验组', createdAt:now-100000,
+                      mice:[ {strain:'BALB/c',count:6,birthDate:dateBefore(now,12),weeks:12,gender:'female'} ] },
+                    { id:genId(), name:'B-003', location:'动物房2层B区', notes:'', createdAt:now-200000,
+                      mice:[ {strain:'ICR',count:4,birthDate:dateBefore(now,6),weeks:6,gender:'male'}, {strain:'ICR',count:4,birthDate:dateBefore(now,6),weeks:6,gender:'female'}, {strain:'KM',count:2,birthDate:dateBefore(now,10),weeks:10,gender:'male'} ] },
+                    { id:genId(), name:'C-001', location:'动物房1层C区', notes:'繁殖笼', createdAt:now-300000,
+                      mice:[ {strain:'C57BL/6',count:2,birthDate:dateBefore(now,16),weeks:16,gender:'male'}, {strain:'C57BL/6',count:4,birthDate:dateBefore(now,16),weeks:16,gender:'female'} ] }
+                ];
+                syncCageSortOrder();
+                saveData();
+            }
+        }
+        function markExportState(isExported) {
+            hasUnexportedChanges = !isExported;
+        }
+        function updateLastModifiedDisplay() {
+            const el = document.getElementById('lastModifiedText');
+            if (!el) return;
+            el.textContent = formatDateTime(lastModifiedAt);
+        }
+        function formatDateTime(ts) {
+            if (!ts) return '-';
+            const d = new Date(ts);
+            const pad = n => String(n).padStart(2, '0');
+            return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+        }
+        function saveData() {
+            persistDataState({ touchModifiedAt: true });
+        }
+        function persistDataState(options) {
+            const settings = options || {};
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(cages));
+            locationOrder = normalizeLocationOrder(locationOrder, cages);
+            localStorage.setItem(LOCATION_ORDER_KEY, JSON.stringify(locationOrder));
+            if (settings.touchModifiedAt !== false) lastModifiedAt = Date.now();
+            localStorage.setItem(MODIFIED_AT_KEY, String(lastModifiedAt));
+            updateLastModifiedDisplay();
+            markExportState(false);
+        }
+        function genId() { return 'c'+Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+        function isPlainObject(value) {
+            return !!value && typeof value === 'object' && !Array.isArray(value);
+        }
+        function isValidDateInput(value) {
+            if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+            const date = new Date(value);
+            return !Number.isNaN(date.getTime()) && formatDate(date) === value;
+        }
+        function isFutureDateInput(value) {
+            if (!isValidDateInput(value)) return false;
+            return new Date(value).getTime() > new Date(formatDate(new Date())).getTime();
+        }
+        function isValidCreatedAt(value) {
+            return typeof value === 'number' && Number.isFinite(value) && value >= 0;
+        }
+        function isValidModifiedAt(value) {
+            return typeof value === 'number' && Number.isFinite(value) && value >= 0;
+        }
+        function isValidSortOrder(value) {
+            return typeof value === 'number' && Number.isFinite(value);
+        }
+        function isValidWeeks(value) {
+            return typeof value === 'number' && Number.isFinite(value) && value >= 0;
+        }
+        function normalizeGenderValue(value) {
+            return value === 'male' || value === 'female' || value === 'unknown' ? value : 'unknown';
+        }
+        function getGenderMeta(gender) {
+            const normalized = normalizeGenderValue(gender);
+            if (normalized === 'male') return { key:'male', short:'♂ 雄', full:'雄性', prefix:'M' };
+            if (normalized === 'female') return { key:'female', short:'♀ 雌', full:'雌性', prefix:'F' };
+            return { key:'unknown', short:'？ 未知', full:'性别未知', prefix:'U' };
+        }
+        function validateMouseRecord(mouse, cageIndex, mouseIndex) {
+            const path = '第' + (cageIndex + 1) + '个笼位的第' + (mouseIndex + 1) + '组小鼠';
+            if (!isPlainObject(mouse)) return path + '不是有效对象';
+            if (typeof mouse.strain !== 'string' || !mouse.strain.trim()) return path + '缺少有效品系';
+            const countKnown = mouse.count !== undefined && mouse.count !== null;
+            if (countKnown && (!Number.isInteger(mouse.count) || mouse.count < 1)) return path + '数量必须是大于等于1的整数';
+            if (!['male', 'female', 'unknown'].includes(mouse.gender)) return path + '性别必须是 male、female 或 unknown';
+
+            const hasBirthDate = mouse.birthDate !== undefined && mouse.birthDate !== null && mouse.birthDate !== '';
+            const hasWeeks = mouse.weeks !== undefined && mouse.weeks !== null && mouse.weeks !== '';
+            if (!hasBirthDate && !hasWeeks) return path + '必须提供出生日期或周龄';
+            if (hasBirthDate && !isValidDateInput(mouse.birthDate)) return path + '出生日期格式无效';
+            if (hasBirthDate && isFutureDateInput(mouse.birthDate)) return path + '出生日期不能晚于今天';
+            if (hasWeeks && !isValidWeeks(mouse.weeks)) return path + '周龄必须是大于等于0的数字';
+
+            if (mouse.individualIds !== undefined) {
+                if (!Array.isArray(mouse.individualIds)) return path + '个体编号必须是数组';
+                if (!countKnown && mouse.individualIds.length > 0) return path + '数量未知时不能设置个体编号';
+                const cleanedIds = mouse.individualIds.map(id => typeof id === 'string' ? id.trim() : '');
+                if (cleanedIds.some(id => !id)) return path + '个体编号中存在空值';
+                if (new Set(cleanedIds).size !== cleanedIds.length) return path + '个体编号存在重复';
+                if (countKnown && cleanedIds.length > 0 && cleanedIds.length !== mouse.count) return path + '个体编号数量必须与小鼠数量一致';
+            }
+            return '';
+        }
+        function validateImportData(data) {
+            if (!Array.isArray(data)) return 'cages 必须是数组';
+            const cageNames = new Set();
+            for (let i = 0; i < data.length; i++) {
+                const cage = data[i];
+                const path = '第' + (i + 1) + '个笼位';
+                if (!isPlainObject(cage)) return path + '不是有效对象';
+                if (typeof cage.id !== 'string' || !cage.id.trim()) return path + '缺少有效 id';
+                if (typeof cage.name !== 'string' || !cage.name.trim()) return path + '缺少有效笼位编号';
+                const normalizedName = cage.name.trim().toLowerCase();
+                if (cageNames.has(normalizedName)) return path + '笼位编号重复：' + cage.name.trim();
+                cageNames.add(normalizedName);
+                if (cage.location !== undefined && typeof cage.location !== 'string') return path + '放置位置必须是字符串';
+                if (cage.notes !== undefined && typeof cage.notes !== 'string') return path + '备注必须是字符串';
+                if (cage.createdAt !== undefined && !isValidCreatedAt(cage.createdAt)) return path + '创建时间无效';
+                if (cage.sortOrder !== undefined && !isValidSortOrder(cage.sortOrder)) return path + '排序值无效';
+                if (!Array.isArray(cage.mice)) return path + '的小鼠列表必须是数组';
+                for (let j = 0; j < cage.mice.length; j++) {
+                    const mouseError = validateMouseRecord(cage.mice[j], i, j);
+                    if (mouseError) return mouseError;
+                }
+            }
+            return '';
+        }
+        function extractImportPayload(data) {
+            if (isPlainObject(data) && Array.isArray(data.cages) && isValidModifiedAt(data.lastModifiedAt)) {
+                return {
+                    cages: data.cages,
+                    lastModifiedAt: data.lastModifiedAt,
+                    locationOrder: Array.isArray(data.locationOrder) ? data.locationOrder : [],
+                    format: 'object'
+                };
+            }
+            return { cages: null, lastModifiedAt: null, locationOrder: [], format: 'invalid' };
+        }
+        function normalizeCages(list) {
+            if(!Array.isArray(list))return [];
+            return list.filter(c=>c&&c.id&&c.name&&Array.isArray(c.mice)).map((c,index)=>({
+                id:c.id,
+                name:c.name,
+                location:c.location||'',
+                notes:c.notes||'',
+                createdAt:typeof c.createdAt==='number'?c.createdAt:Date.now(),
+                sortOrder:isValidSortOrder(c.sortOrder)?c.sortOrder:index,
+                mice:c.mice.map(normalizeMouse)
+            }));
+        }
+        function syncCageSortOrder() {
+            cages.forEach((cage, index) => {
+                cage.sortOrder = index;
+            });
+        }
+        function getLocationKey(cageOrLocation) {
+            if (typeof cageOrLocation === 'string') return cageOrLocation.trim() || '未设置位置';
+            return ((cageOrLocation && cageOrLocation.location) || '').trim() || '未设置位置';
+        }
+        function normalizeLocationOrder(order, cageList) {
+            const existing = [...new Set((cageList || []).map(getLocationKey))].filter(location => location !== '未设置位置');
+            const baseOrder = Array.isArray(order) ? order.filter(location => typeof location === 'string' && location.trim() && location !== '未设置位置') : [];
+            const normalized = [];
+            baseOrder.forEach(location => {
+                if (existing.includes(location) && !normalized.includes(location)) normalized.push(location);
+            });
+            existing.forEach(location => {
+                if (!normalized.includes(location)) normalized.push(location);
+            });
+            return normalized;
+        }
+        function getOrderedLocationKeys(groupMap) {
+            const keys = [...groupMap.keys()];
+            const placed = keys.filter(location => location !== '未设置位置');
+            const normalized = normalizeLocationOrder(locationOrder, placed.map(location => ({ location })));
+            return keys.includes('未设置位置') ? normalized.concat('未设置位置') : normalized;
+        }
+        function getSortableCages() {
+            return cages.slice().sort((a, b) => {
+                const orderDiff = (a.sortOrder ?? 0) - (b.sortOrder ?? 0);
+                if (orderDiff !== 0) return orderDiff;
+                return a.createdAt - b.createdAt;
+            });
+        }
+        function moveCageBefore(sourceId, targetId) {
+            if (!sourceId || !targetId || sourceId === targetId) return false;
+            const ordered = getSortableCages();
+            const fromIndex = ordered.findIndex(cage => cage.id === sourceId);
+            const toIndex = ordered.findIndex(cage => cage.id === targetId);
+            if (fromIndex === -1 || toIndex === -1) return false;
+            const [moved] = ordered.splice(fromIndex, 1);
+            ordered.splice(toIndex, 0, moved);
+            cages = ordered;
+            syncCageSortOrder();
+            return true;
+        }
+        function moveCageRelative(sourceId, targetId, mode) {
+            if (!sourceId || !targetId || sourceId === targetId) return false;
+            const ordered = getSortableCages();
+            const fromIndex = ordered.findIndex(cage => cage.id === sourceId);
+            const targetIndex = ordered.findIndex(cage => cage.id === targetId);
+            if (fromIndex === -1 || targetIndex === -1) return false;
+            const [moved] = ordered.splice(fromIndex, 1);
+            let insertIndex = targetIndex;
+            if (fromIndex < targetIndex) insertIndex -= 1;
+            if (mode === 'after') insertIndex += 1;
+            if (insertIndex < 0) insertIndex = 0;
+            if (insertIndex > ordered.length) insertIndex = ordered.length;
+            ordered.splice(insertIndex, 0, moved);
+            cages = ordered;
+            syncCageSortOrder();
+            return true;
+        }
+        function moveLocationGroupRelative(sourceLocation, targetLocation, mode, visibleLocations) {
+            if (!sourceLocation || !targetLocation || sourceLocation === targetLocation) return false;
+            if (sourceLocation === '未设置位置' || targetLocation === '未设置位置') return false;
+            const fullOrder = normalizeLocationOrder(locationOrder, cages);
+            const visibleOrder = (Array.isArray(visibleLocations) ? visibleLocations : fullOrder)
+                .filter(location => location !== '未设置位置' && fullOrder.includes(location));
+            const fromIndex = visibleOrder.indexOf(sourceLocation);
+            const targetIndex = visibleOrder.indexOf(targetLocation);
+            if (fromIndex === -1 || targetIndex === -1) return false;
+            const reorderedVisible = visibleOrder.slice();
+            const [movedLocation] = reorderedVisible.splice(fromIndex, 1);
+            let insertIndex = targetIndex;
+            if (fromIndex < targetIndex) insertIndex -= 1;
+            if (mode === 'after') insertIndex += 1;
+            if (insertIndex < 0) insertIndex = 0;
+            if (insertIndex > reorderedVisible.length) insertIndex = reorderedVisible.length;
+            reorderedVisible.splice(insertIndex, 0, movedLocation);
+            const reorderedSet = new Set(reorderedVisible);
+            let reorderedIndex = 0;
+            locationOrder = fullOrder.map(location => {
+                if (!reorderedSet.has(location)) return location;
+                const nextLocation = reorderedVisible[reorderedIndex];
+                reorderedIndex += 1;
+                return nextLocation;
+            });
+            return true;
+        }
+        function clearDragTargetState() {
+            document.querySelectorAll('.cage-card.drag-target-before, .cage-card.drag-target-after').forEach(el=>{
+                el.classList.remove('drag-target-before');
+                el.classList.remove('drag-target-after');
+            });
+        }
+        function clearLocationGroupDragState() {
+            document.querySelectorAll('.location-group.group-drag-target-before, .location-group.group-drag-target-after').forEach(el=>{
+                el.classList.remove('group-drag-target-before');
+                el.classList.remove('group-drag-target-after');
+            });
+        }
+        function getLocationGroupColor(locationKey) {
+            let hash = 0;
+            for (let i = 0; i < locationKey.length; i++) {
+                hash = (hash * 31 + locationKey.charCodeAt(i)) >>> 0;
+            }
+            return LOCATION_GROUP_COLORS[hash % LOCATION_GROUP_COLORS.length];
+        }
+        function renderLocationGroups(list, search, isManualSort) {
+            const groups = new Map();
+            list.forEach(cage => {
+                const key = getLocationKey(cage);
+                if (!groups.has(key)) groups.set(key, []);
+                groups.get(key).push(cage);
+            });
+            const orderedLocations = getOrderedLocationKeys(groups);
+            return orderedLocations.filter(location => groups.has(location)).map(location => {
+                const groupCages = groups.get(location);
+                const color = getLocationGroupColor(location);
+                const cards = groupCages.map((cage, index) => renderCageCard(cage, index, search, isManualSort, location)).join('');
+                const locationValue = escHtml(location);
+                const groupClass = 'location-group'+(isManualSort?' sortable-group':'')+(location==='未设置位置'?' location-group-unstyled':'');
+                const headerDragAttrs = isManualSort && location !== '未设置位置' ? ' draggable="true"' : '';
+                return '<section class="'+groupClass+'" data-location-section="'+locationValue+'" style="--group-color:'+color+'"><div class="location-group-header"'+headerDragAttrs+'><div class="location-group-title">'+locationValue+'</div><div class="location-group-meta">'+groupCages.length+' 个笼位</div></div><div class="location-group-grid" data-location-group="'+locationValue+'">'+cards+'</div></section>';
+            }).join('');
+        }
+        function clearRemoveHoldState() {
+            if (!removeHoldState) return;
+            const state = removeHoldState;
+            if (state.timer) clearTimeout(state.timer);
+            if (state.raf) cancelAnimationFrame(state.raf);
+            if (state.button) {
+                state.button.classList.remove('holding');
+                state.button.style.removeProperty('--hold-progress');
+            }
+            removeHoldState = null;
+        }
+        function toggleActionMenu(cageId) {
+            openActionMenuCageId = openActionMenuCageId === cageId ? '' : cageId;
+            renderCages();
+        }
+        function startMouseRemoveHold(button) {
+            if (!button || csvSelectionMode) return;
+            clearRemoveHoldState();
+            const startedAt = performance.now();
+            const state = {
+                button,
+                cageId: button.dataset.cage || '',
+                mouseIndex: parseInt(button.dataset.idx, 10),
+                timer: null,
+                raf: null
+            };
+            const updateProgress = (now) => {
+                const progress = Math.max(0, Math.min(1, (now - startedAt) / REMOVE_HOLD_DURATION));
+                button.style.setProperty('--hold-progress', String(progress));
+                if (progress < 1 && removeHoldState === state) {
+                    state.raf = requestAnimationFrame(updateProgress);
+                }
+            };
+            button.classList.add('holding');
+            button.style.setProperty('--hold-progress', '0');
+            state.raf = requestAnimationFrame(updateProgress);
+            state.timer = setTimeout(() => {
+                if (removeHoldState !== state) return;
+                const cageId = state.cageId;
+                const mouseIndex = state.mouseIndex;
+                clearRemoveHoldState();
+                removeMouse(cageId, mouseIndex);
+            }, REMOVE_HOLD_DURATION);
+            removeHoldState = state;
+        }
+        function normalizeMouse(m) {
+            const parsedCount = m&&m.count!==undefined&&m.count!==null&&m.count!==''
+                ? parseInt(m.count,10)
+                : null;
+            return {
+                strain:m&&m.strain?m.strain:'',
+                count:Number.isInteger(parsedCount)&&parsedCount>0?parsedCount:null,
+                birthDate:m&&m.birthDate?m.birthDate:'',
+                weeks:m&&m.weeks!==undefined&&m.weeks!==null&&!isNaN(parseFloat(m.weeks))?parseFloat(m.weeks):null,
+                gender:normalizeGenderValue(m&&m.gender),
+                individualIds:Number.isInteger(parsedCount)&&parsedCount>0?normalizeIndividualIds(m&&m.individualIds):[]
+            };
+        }
+        function normalizeIndividualIds(ids) {
+            if(!Array.isArray(ids))return [];
+            return ids.map(id=>String(id||'').trim()).filter(Boolean);
+        }
+        function findDuplicateValues(list) {
+            const counts = new Map();
+            list.forEach(item => counts.set(item, (counts.get(item) || 0) + 1));
+            return [...counts.entries()].filter(([, count]) => count > 1).map(([item]) => item);
+        }
+        function parseIndividualIds(text) {
+            const normalized=(text||'')
+                .replace(/[，；;]/g, '\n')
+                .replace(/\r\n?/g, '\n')
+                .replace(/[ \t]+/g, '\n');
+            return normalizeIndividualIds(normalized.split('\n'));
+        }
+        function serializeIndividualIds(ids) {
+            return normalizeIndividualIds(ids).join('\n');
+        }
+        function escapeJsString(s) {
+            return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+        }
+        function escapeRegExp(s) {
+            return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        }
+        function buildDefaultIdPrefix(cageId, gender) {
+            return (cageId||'MOUSE')+'-'+getGenderMeta(gender).prefix;
+        }
+        function buildIndividualIds(prefix, count) {
+            const safePrefix=(prefix||'MOUSE').trim();
+            const width=Math.max(2,String(count).length);
+            return Array.from({length:count},(_,i)=>safePrefix+String(i+1).padStart(width,'0'));
+        }
+        function buildUniqueIndividualIds(prefix, count, existingIds) {
+            const safePrefix = (prefix || 'MOUSE').trim();
+            const existing = normalizeIndividualIds(existingIds);
+            const taken = new Set(existing);
+            const numericSuffixes = existing
+                .map(id => {
+                    const match = id.match(new RegExp('^' + safePrefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(\\d+)$'));
+                    return match ? parseInt(match[1], 10) : null;
+                })
+                .filter(value => value !== null);
+            const width = Math.max(2, String(Math.max(existing.length + count, ...numericSuffixes, count)).length);
+            const results = [];
+            let next = numericSuffixes.length ? Math.max(...numericSuffixes) + 1 : 1;
+            while (results.length < count) {
+                const candidate = safePrefix + String(next).padStart(width, '0');
+                if (!taken.has(candidate)) {
+                    results.push(candidate);
+                    taken.add(candidate);
+                }
+                next++;
+            }
+            return results;
+        }
+        function getSelectedCages() {
+            return cages.filter(cage => selectedCageIds.has(cage.id));
+        }
+        function getExportSelectionSummaryText() {
+            return '已勾选 <strong>' + selectedCageIds.size + '</strong> 个笼位用于导出';
+        }
+        function updateSelectionSummary() {
+            const summary = document.getElementById('selectionSummary');
+            const panel = document.getElementById('selectionSummaryPanel');
+            const csvModeBtn = document.getElementById('csvModeBtn');
+            const importBtn = document.getElementById('importBtn');
+            const exportBtn = document.getElementById('exportBtn');
+            const createCageBtn = document.getElementById('createCageBtn');
+            if (panel) panel.hidden = !csvSelectionMode;
+            if (csvModeBtn) csvModeBtn.classList.toggle('is-active', csvSelectionMode);
+            if (importBtn) importBtn.classList.toggle('is-disabled', csvSelectionMode);
+            if (exportBtn) exportBtn.classList.toggle('is-disabled', csvSelectionMode);
+            if (createCageBtn) createCageBtn.classList.toggle('is-disabled', csvSelectionMode);
+            if (!summary) return;
+            summary.innerHTML = getExportSelectionSummaryText();
+        }
+        function enterCsvSelectionMode() {
+            csvSelectionMode = true;
+            updateSelectionSummary();
+            renderCages();
+        }
+        function exitCsvSelectionMode() {
+            csvSelectionMode = false;
+            updateSelectionSummary();
+            renderCages();
+        }
+        function toggleCsvSelectionMode() {
+            if (csvSelectionMode) exitCsvSelectionMode();
+            else enterCsvSelectionMode();
+        }
+        function toggleCageSelection(cageId, checked) {
+            if (checked) selectedCageIds.add(cageId);
+            else selectedCageIds.delete(cageId);
+            updateSelectionSummary();
+        }
+        function clearSelectedCages() {
+            selectedCageIds.clear();
+            renderCages();
+            showToast('已清空 CSV 勾选笼位', 'info');
+        }
+        function selectVisibleCages() {
+            document.querySelectorAll('.cage-select').forEach(el => selectedCageIds.add(el.dataset.cageId));
+            renderCages();
+            showToast('已勾选当前筛选结果中的笼位', 'success');
+        }
+        function getMoveTargetOptions(currentCageId) {
+            return cages.filter(c=>c.id!==currentCageId).map(c=>'<option value="'+c.id+'">'+escHtml(c.name)+'</option>').join('');
+        }
+        function getMouseIdStatusSummary() {
+            const countUnknown = document.getElementById('mouseCountUnknown').checked;
+            const count = countUnknown ? null : (parseInt(document.getElementById('mouseCount').value, 10) || 0);
+            const ids = parseIndividualIds(document.getElementById('mouseIndividualIds').value);
+            const duplicates = findDuplicateValues(ids);
+            return { count, ids, duplicates, countUnknown };
+        }
+        function updateMouseIdStatus() {
+            const status = document.getElementById('mouseIdStatus');
+            const enabled = document.getElementById('enableIndividualIds').checked;
+            if (!status) return;
+            if (!enabled) {
+                status.textContent = '已关闭单独编号';
+                status.className = 'id-status';
+                return;
+            }
+            const { count, ids, duplicates, countUnknown } = getMouseIdStatusSummary();
+            if (countUnknown) {
+                status.textContent = '数量未知时不能启用个体编号';
+                status.className = 'id-status error';
+                return;
+            }
+            let text = '已解析 ' + ids.length + ' 个编号 / 需要 ' + count + ' 个';
+            let className = 'id-status';
+            if (duplicates.length > 0) {
+                text += '；同组内重复：' + duplicates.join('、');
+                className += ' error';
+            } else if (count > 0 && ids.length === count) {
+                text += '；数量匹配';
+                className += ' success';
+            } else if (count > 0) {
+                text += ids.length > count ? '；编号多于数量' : '；编号少于数量';
+                className += ' error';
+            }
+            status.textContent = text;
+            status.className = className;
+        }
+        function inferMouseIdPrefix() {
+            const cageId=document.getElementById('mouseCageId').value;
+            const cage=cages.find(x=>x.id===cageId);
+            const prefixInput=document.getElementById('mouseIdPrefix');
+            if(!prefixInput.value.trim())prefixInput.value=buildDefaultIdPrefix(cage?cage.name:'MOUSE',selectedGender);
+            return prefixInput.value.trim();
+        }
+        function formatMouseCount(count) {
+            return count===null||count===undefined?'数量未知':count+'只';
+        }
+        function getWeekRangeBounds(value) {
+            if (!value || value === 'all') return null;
+            const parts = value.split('-').map(v => parseFloat(v));
+            if (parts.length !== 2 || parts.some(v => Number.isNaN(v))) return null;
+            return { min: parts[0], max: parts[1] };
+        }
+        function cageHasWeekInRange(cage, range) {
+            if (!range) return true;
+            return cage.mice.some(mouse => {
+                const weeks = getCurrentWeeks(mouse);
+                return weeks !== null && weeks !== undefined && weeks >= range.min && weeks < range.max;
+            });
+        }
+        function cageHasIndividualIds(cage) {
+            return cage.mice.some(mouse => (mouse.individualIds || []).length > 0);
+        }
+        function isBreedingCage(cage) {
+            const source = ((cage.name || '') + ' ' + (cage.notes || '')).toLowerCase();
+            return source.includes('繁殖笼') || source.includes('繁殖');
+        }
+        function highlightSearchMatch(text, keyword) {
+            const safeText = String(text || '');
+            if (!keyword) return escHtml(safeText);
+            const regex = new RegExp('(' + escapeRegExp(keyword) + ')', 'ig');
+            return escHtml(safeText).replace(regex, '<span class="search-hit">$1</span>');
+        }
+        function getIndividualIdHighlightKeyword(ids, search) {
+            if (!search || !ids || !ids.length) return '';
+            return ids.some(id => String(id).toLowerCase().includes(search)) ? search : '';
+        }
+        function renderIndividualIdChips(ids, search) {
+            if (!ids || !ids.length) return '';
+            const highlightKeyword = getIndividualIdHighlightKeyword(ids, search);
+            return '<div class="id-chip-list">' + ids.map(id => '<span class="id-chip">' + highlightSearchMatch(id, highlightKeyword) + '</span>').join('') + '</div>';
+        }
+
+        function calcWeeksFromBirth(s) { if(!s)return null; const d=new Date().getTime()-new Date(s).getTime(); return d<0?0:Math.round((d/MS_PER_WEEK)*2)/2; }
+        function calcBirthFromWeeks(w) { return(w===null||w===undefined||w<0)?'':formatDate(new Date(Date.now()-w*MS_PER_WEEK)); }
+        function formatDate(d) { return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+        function dateBefore(ts,w) { return formatDate(new Date(ts-w*MS_PER_WEEK)); }
+        function getCurrentWeeks(m) { return m.birthDate?calcWeeksFromBirth(m.birthDate):m.weeks; }
+        function getWeekRangeText(mice) {
+            const wr=mice.map(m=>getCurrentWeeks(m)).filter(w=>w!==null&&w!==undefined);
+            if(wr.length===0)return '-';
+            const minW=Math.min(...wr),maxW=Math.max(...wr);
+            return minW===maxW?minW+'周':minW+'-'+maxW+'周';
+        }
+        function getWeekTagHtml(m) {
+            const w=getCurrentWeeks(m),ia=!!m.birthDate;
+            const attrs=' data-birth-date="'+(m.birthDate||'')+'" data-static-weeks="'+(m.weeks??'')+'"';
+            return '<span class="week-tag"'+attrs+'>'+(ia?'<span class="auto-mark" title="自动计算">⟳</span> ':'')+(w!==null?w+'周':'-')+'</span>';
+        }
+        function getNextDynamicWeekRefreshDelay() {
+            const now=Date.now();
+            let minDelay=12*60*60*1000;
+            cages.forEach(c=>c.mice.forEach(m=>{
+                if(!m.birthDate)return;
+                const birthTs=new Date(m.birthDate).getTime();
+                if(Number.isNaN(birthTs))return;
+                const elapsedWeeks=(now-birthTs)/MS_PER_WEEK;
+                const nextBoundaryWeeks=(Math.floor(elapsedWeeks*2+0.5)+0.5)/2;
+                const delay=Math.max(60*1000,Math.ceil((nextBoundaryWeeks*MS_PER_WEEK)-(now-birthTs))+1000);
+                if(delay<minDelay)minDelay=delay;
+            }));
+            return minDelay;
+        }
+        function refreshDynamicWeekDisplays() {
+            document.querySelectorAll('.week-tag').forEach(el=>{
+                const birthDate=el.dataset.birthDate||'';
+                const staticWeeks=el.dataset.staticWeeks;
+                const mouse={birthDate:birthDate,weeks:staticWeeks===''?null:parseFloat(staticWeeks)};
+                const w=getCurrentWeeks(mouse),ia=!!birthDate;
+                el.innerHTML=(ia?'<span class="auto-mark" title="自动计算">⟳</span> ':'')+(w!==null?w+'周':'-');
+            });
+            document.querySelectorAll('[data-role="cage-week-range"]').forEach(el=>{
+                const cage=cages.find(c=>c.id===el.dataset.cageId);
+                if(cage)el.textContent='周龄: '+getWeekRangeText(cage.mice);
+            });
+            document.querySelectorAll('[data-role="detail-week-range"]').forEach(el=>{
+                const cage=cages.find(c=>c.id===el.dataset.cageId);
+                if(cage)el.textContent=getWeekRangeText(cage.mice);
+            });
+        }
+        function scheduleDynamicWeekRefresh() {
+            if(dynamicWeekRefreshTimer)clearTimeout(dynamicWeekRefreshTimer);
+            dynamicWeekRefreshTimer=setTimeout(()=>{
+                refreshDynamicWeekDisplays();
+                scheduleDynamicWeekRefresh();
+            },getNextDynamicWeekRefreshDelay());
+        }
+        function csvEscape(value) {
+            const text = String(value ?? '');
+            return '"' + text.replace(/"/g, '""') + '"';
+        }
+        function downloadTextFile(name, content, mimeType) {
+            const blob = new Blob([content], { type: mimeType });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = name;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+        function buildCsvRowsForCages(selectedCages) {
+            const generatedAt = formatDate(new Date());
+            const locationSummary = [...new Set(selectedCages.map(cage => (cage.location || '').trim()).filter(Boolean))].join('；') || '-';
+            const genotypeSummary = [...new Set(selectedCages.flatMap(cage => cage.mice.map(mouse => (mouse.strain || '').trim()).filter(Boolean)))].join('；') || '-';
+            const rows = [
+                ['生成日期', generatedAt],
+                ['放置位置', locationSummary],
+                ['基因型', genotypeSummary],
+                [],
+                ['笼位', '周龄', '性别', '数量', '编号']
+            ];
+            selectedCages.forEach(cage => {
+                cage.mice.forEach(mouse => {
+                    const weeks = getCurrentWeeks(mouse);
+                    const genderCode = mouse.gender === 'male' ? 'M' : (mouse.gender === 'female' ? 'F' : 'U');
+                    const baseRow = [
+                        cage.name || '',
+                        weeks !== null && weeks !== undefined ? weeks + '周' : '',
+                        genderCode
+                    ];
+                    const ids = normalizeIndividualIds(mouse.individualIds);
+                    if (ids.length > 0) {
+                        ids.forEach(id => {
+                            rows.push(baseRow.concat(['1', id]));
+                        });
+                    } else {
+                        rows.push(baseRow.concat([mouse.count === null || mouse.count === undefined ? '数量未知' : String(mouse.count), '']));
+                    }
+                });
+            });
+            return rows.map(row => row.map(csvEscape).join(',')).join('\n');
+        }
+        function buildPdfExportHtml(selectedCages) {
+            const generatedAt = formatDate(new Date());
+            const modifiedAtText = formatDateTime(lastModifiedAt);
+            const locationSummary = [...new Set(selectedCages.map(cage => (cage.location || '').trim()).filter(Boolean))].join('；') || '-';
+            const totalMice = selectedCages.reduce((sum, cage) => sum + cage.mice.reduce((groupSum, mouse) => groupSum + (mouse.count || 0), 0), 0);
+            const totalGroups = selectedCages.reduce((sum, cage) => sum + cage.mice.length, 0);
+            const birthRows = [];
+            const cagesHtml = selectedCages.map(cage => {
+                const locationText = (cage.location || '').trim() || '未设置位置';
+                const notesText = (cage.notes || '').trim();
+                const summaryCount = cage.mice.reduce((sum, mouse) => sum + (mouse.count || 0), 0);
+                const miceRows = cage.mice.length > 0
+                    ? cage.mice.map(mouse => {
+                        const genderCode = mouse.gender === 'male' ? 'M' : (mouse.gender === 'female' ? 'F' : '');
+                        const weeks = getCurrentWeeks(mouse);
+                        const birthDateText = mouse.birthDate || (weeks !== null && weeks !== undefined ? calcBirthFromWeeks(weeks) : '');
+                        const ids = normalizeIndividualIds(mouse.individualIds);
+                        const countText = mouse.count === null || mouse.count === undefined ? '' : String(mouse.count);
+                        const idsHtml = ids.length
+                            ? '<div class="id-print-list">' + ids.map(id => '<span class="id-print-chip">' + escHtml(id) + '</span>').join('') + '</div>'
+                            : '';
+                        birthRows.push({
+                            cageName: cage.name || '',
+                            strain: mouse.strain || '-',
+                            weeks: weeks !== null && weeks !== undefined ? weeks + '周' : '',
+                            birthDate: birthDateText,
+                            gender: genderCode,
+                            count: countText
+                        });
+                        return '<tr>'
+                            + '<td>' + escHtml(mouse.strain || '-') + '</td>'
+                            + '<td>' + escHtml(weeks !== null && weeks !== undefined ? weeks + '周' : '-') + '</td>'
+                            + '<td>' + genderCode + '</td>'
+                            + '<td>' + escHtml(countText) + '</td>'
+                            + '<td class="ids-cell">' + idsHtml + '</td>'
+                            + '</tr>';
+                    }).join('')
+                    : '<tr><td colspan="5" class="model-empty">暂无小鼠记录</td></tr>';
+                return '<section class="print-cage">'
+                    + '<div class="print-cage-head">'
+                    + '<div class="print-cage-title">' + escHtml(cage.name) + '</div>'
+                    + '<div class="print-cage-meta">'
+                    + '<span>位置：' + escHtml(locationText) + '</span>'
+                    + '<span>共 ' + cage.mice.length + ' 组 / ' + summaryCount + ' 只</span>'
+                    + '</div>'
+                    + (notesText ? '<div class="print-cage-notes">备注：' + escHtml(notesText) + '</div>' : '')
+                    + '</div>'
+                    + '<table class="print-table"><thead><tr><th>基因型</th><th>周龄</th><th>性别</th><th>数量</th><th>编号</th></tr></thead><tbody>'
+                    + miceRows
+                    + '</tbody></table>'
+                    + '</section>';
+            }).join('');
+            const birthReferenceHtml = birthRows.length > 0
+                ? '<section class="birth-reference">'
+                    + '<div class="birth-reference-list">'
+                    + birthRows.map(row => '<div class="birth-reference-item">'
+                        + '笼位 ' + escHtml(row.cageName)
+                        + ' | ' + escHtml(row.strain)
+                        + ' | ' + escHtml(row.weeks)
+                        + ' -> 出生日期 ' + escHtml(row.birthDate || '-')
+                        + (row.gender ? ' | ' + escHtml(row.gender) : '')
+                        + (row.count ? ' | ' + escHtml(row.count) + '只' : '')
+                        + '</div>').join('')
+                    + '</div>'
+                    + '</section>'
+                : '';
+            return '<div class="page"><div class="print-main">'
+                + '<header class="print-header"><div class="print-title">导出日期：' + escHtml(generatedAt) + '</div><div class="print-meta">'
+                + '<div>修改时间：' + escHtml(modifiedAtText) + '</div>'
+                + '<div class="print-meta-wide">放置位置：' + escHtml(locationSummary) + '</div>'
+                + '</div><div class="print-summary">共 ' + selectedCages.length + ' 个笼位 / ' + totalGroups + ' 组 / ' + totalMice + ' 只</div></header>'
+                + cagesHtml
+                + birthReferenceHtml
+                + '</div><aside class="print-notes-column"></aside></div>';
+        }
+        function openPdfPreview(selectedCages, exportName) {
+            const content = document.getElementById('pdfPreviewContent');
+            const title = document.getElementById('pdfPreviewTitle');
+            if (!content) return false;
+            activePdfExportName = exportName || '笼位打印稿';
+            content.innerHTML = buildPdfExportHtml(selectedCages);
+            if (title) title.textContent = activePdfExportName;
+            document.getElementById('pdfPreviewModal').classList.add('active');
+            return true;
+        }
+        function closePdfPreview() {
+            document.body.classList.remove('printing-pdf');
+            activePdfExportName = '';
+            document.getElementById('pdfPreviewModal').classList.remove('active');
+        }
+        function printPdfPreview() {
+            document.body.classList.add('printing-pdf');
+            setTimeout(() => window.print(), 60);
+        }
+
+        // ========== 导出弹窗 ==========
+        function openExportModal(format) {
+            if (format === 'csv' || format === 'pdf') enterCsvSelectionMode();
+            const today = formatDate(new Date());
+            const exportFormat = format === 'csv' || format === 'pdf' ? format : 'json';
+            const defaultName = exportFormat === 'csv' ? '小鼠笼位统计' : (exportFormat === 'pdf' ? '笼位打印稿' : '小鼠笼位数据');
+            document.getElementById('exportFormat').value = exportFormat;
+            document.getElementById('exportFilename').value = defaultName + '_' + today;
+            updateExportPreview();
+            document.getElementById('exportModal').classList.add('active');
+            setTimeout(() => document.getElementById('exportFilename').focus(), 100);
+        }
+        function closeExportModal() { document.getElementById('exportModal').classList.remove('active'); }
+
+        function updateExportPreview() {
+            const format = document.getElementById('exportFormat').value;
+            const fallback = format === 'csv' ? '小鼠笼位统计' : (format === 'pdf' ? '笼位打印稿' : '小鼠笼位数据');
+            const name = document.getElementById('exportFilename').value.trim() || fallback;
+            document.getElementById('exportPreview').value = format === 'pdf' ? name + '.pdf（通过打印窗口保存）' : name + '.' + format;
+            document.getElementById('exportModeHint').textContent = format === 'csv'
+                ? 'CSV 会把生成日期、放置位置、基因型写在表头；有编号时每个编号单独占一行，性别使用 M/F/U。'
+                : (format === 'pdf'
+                    ? 'PDF 会按当前勾选笼位打开黑白竖向打印稿，请在系统打印框中选择“存储为 PDF”或类似选项。'
+                    : 'JSON 会导出全部笼位原始数据，适合备份与重新导入。');
+        }
+        // 实时更新预览
+        document.getElementById('exportFilename').addEventListener('input', updateExportPreview);
+
+        function executeExport() {
+            const format = document.getElementById('exportFormat').value;
+            const fallback = format === 'csv' ? '小鼠笼位统计' : (format === 'pdf' ? '笼位打印稿' : '小鼠笼位数据');
+            const name = document.getElementById('exportFilename').value.trim() || fallback;
+            if (format === 'csv') {
+                const selectedCages = getSelectedCages();
+                if (selectedCages.length === 0) {
+                    showToast('请先勾选至少一个笼位再导出 CSV', 'error');
+                    return;
+                }
+                const csvContent = buildCsvRowsForCages(selectedCages);
+                downloadTextFile(name + '.csv', '\ufeff' + csvContent, 'text/csv;charset=utf-8;');
+                showToast('已导出勾选笼位 CSV：' + name + '.csv', 'success');
+                exitCsvSelectionMode();
+            } else if (format === 'pdf') {
+                const selectedCages = getSelectedCages();
+                if (selectedCages.length === 0) {
+                    showToast('请先勾选至少一个笼位再导出 PDF', 'error');
+                    return;
+                }
+                const opened = openPdfPreview(selectedCages, name);
+                if (!opened) return;
+                showToast('已打开 PDF 预览：' + name, 'success');
+                exitCsvSelectionMode();
+            } else {
+                const dataStr = JSON.stringify({
+                    lastModifiedAt: lastModifiedAt || Date.now(),
+                    locationOrder: normalizeLocationOrder(locationOrder, cages),
+                    cages: cages
+                }, null, 2);
+                downloadTextFile(name + '.json', dataStr, 'application/json');
+                showToast('数据已导出：' + name + '.json', 'success');
+            }
+            markExportState(true);
+            closeExportModal();
+        }
+
+        // ========== 导入 ==========
+        function importDataTrigger() { document.getElementById('importFileInput').click(); }
+        function importJsonData(data, successMessage, failurePrefix) {
+            try {
+                const payload = extractImportPayload(data);
+                if (!payload.cages) {
+                    showToast((failurePrefix || '导入失败：') + '文件必须是包含 lastModifiedAt 和 cages 的对象', 'error');
+                    return false;
+                }
+                const validationError = validateImportData(payload.cages);
+                if (validationError) {
+                    showToast((failurePrefix || '导入失败：') + validationError, 'error');
+                    return false;
+                }
+                cages = normalizeCages(payload.cages);
+                syncCageSortOrder();
+                locationOrder = normalizeLocationOrder(payload.locationOrder, cages);
+                lastModifiedAt = payload.lastModifiedAt;
+                persistDataState({ touchModifiedAt: false });
+                renderCages();
+                if (successMessage) showToast(successMessage, 'success');
+                return true;
+            } catch (err) {
+                showToast((failurePrefix || '导入失败：') + '无法解析数据', 'error');
+                return false;
+            }
+        }
+        function importJsonFile(file) {
+            if (!file) return;
+            if (!/\.json$/i.test(file.name || '')) {
+                showToast('仅支持导入 JSON 文件', 'error');
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    const payload = extractImportPayload(data);
+                    const successMessage = payload.cages
+                        ? '导入成功，共 ' + payload.cages.length + ' 个笼位'
+                        : '导入成功';
+                    importJsonData(data, successMessage, '导入失败：');
+                } catch(err) { showToast('导入失败：无法解析文件', 'error'); }
+            };
+            reader.readAsText(file);
+        }
+        function importData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            importJsonFile(file);
+            event.target.value = '';
+        }
+        function openWelcomeImportModal() {
+            document.getElementById('welcomeImportModal').classList.add('active');
+        }
+        function closeWelcomeImportModal() {
+            document.getElementById('welcomeImportModal').classList.remove('active');
+        }
+        function triggerWelcomeImport() {
+            closeWelcomeImportModal();
+            importDataTrigger();
+        }
+        function scheduleExportReminderOnLeaveAttempt() {
+            if (leaveExportReminderPending) return;
+            leaveExportReminderPending = true;
+            setTimeout(() => {
+                leaveExportReminderPending = false;
+                if (document.visibilityState !== 'visible' || !hasUnexportedChanges) return;
+                closeWelcomeImportModal();
+                openExportModal('json');
+                showToast('检测到你准备离开页面，建议先导出 JSON 备份', 'info');
+            }, 150);
+        }
+
+        // ========== 统计 ==========
+        function updateStats() {
+            let t=0,m=0,u=0,f=0;
+            cages.forEach(c=>c.mice.forEach(mi=>{
+                if(mi.count===null||mi.count===undefined)return;
+                t+=mi.count;
+                if(mi.gender==='male')m+=mi.count;
+                else if(mi.gender==='female')f+=mi.count;
+                else u+=mi.count;
+            }));
+            animateNumber('statCages',cages.length); animateNumber('statMice',t);
+            animateNumber('statMale',m); animateNumber('statUnknown',u); animateNumber('statFemale',f);
+        }
+        function animateNumber(id,target) {
+            const el=document.getElementById(id); const cur=parseInt(el.textContent)||0;
+            if(cur===target)return; const diff=target-cur,steps=15; let step=0;
+            const timer=setInterval(()=>{step++;el.textContent=Math.round(cur+diff*(step/steps));if(step>=steps){el.textContent=target;clearInterval(timer);}},20);
+        }
+
+        // ========== 渲染 ==========
+        function renderCages() {
+            clearRemoveHoldState();
+            const search=document.getElementById('searchInput').value.toLowerCase().trim();
+            const fg=document.getElementById('filterGender').value;
+            const weekRange=getWeekRangeBounds(document.getElementById('filterWeeks').value);
+            const hasIdsOnly=document.getElementById('filterHasIds').checked;
+            const emptyOnly=document.getElementById('filterEmptyCage').checked;
+            const breedingOnly=document.getElementById('filterBreeding').checked;
+            const sb=document.getElementById('sortBy').value;
+            let filtered=getSortableCages().filter(c=>{
+                if(emptyOnly)return c.mice.length===0;
+                if(search){
+                    if(!(c.name.toLowerCase().includes(search)
+                        ||c.location.toLowerCase().includes(search)
+                        ||c.notes.toLowerCase().includes(search)
+                        ||c.mice.some(mi=>mi.strain.toLowerCase().includes(search)||(mi.individualIds||[]).some(id=>id.toLowerCase().includes(search)))))return false;
+                }
+                if(fg!=='all'&&!c.mice.some(mi=>mi.gender===fg))return false;
+                if(!cageHasWeekInRange(c, weekRange))return false;
+                if(hasIdsOnly&&!cageHasIndividualIds(c))return false;
+                if(breedingOnly&&!isBreedingCage(c))return false;
+                return true;
+            });
+            filtered.sort((a,b)=>{
+                if(sb==='manual')return (a.sortOrder??0)-(b.sortOrder??0);
+                if(sb==='newest')return b.createdAt-a.createdAt;
+                if(sb==='name')return a.name.localeCompare(b.name);
+                if(sb==='count')return b.mice.reduce((s,mi)=>s+mi.count,0)-a.mice.reduce((s,mi)=>s+mi.count,0);
+                return 0;
+            });
+            const grid=document.getElementById('cageGrid');
+            if(filtered.length===0){
+                grid.innerHTML='<div class="empty-state" style="grid-column:1/-1;"><p>'+(cages.length===0?'还没有笼位，点击右上角开始添加':'没有匹配的笼位')+'</p>'+(cages.length===0?'<button class="btn btn-primary" onclick="openCageModal()">+ 新建笼位</button>':'')+'</div>';
+            } else {
+                grid.innerHTML=renderLocationGroups(filtered, search, sb==='manual');
+            }
+            updateStats();
+            updateSelectionSummary();
+            scheduleDynamicWeekRefresh();
+        }
+
+        function renderCageCard(cage,index,search,isManualSort,locationGroup) {
+            const mc=cage.mice.filter(m=>m.gender==='male').reduce((s,m)=>s+(m.count||0),0);
+            const uc=cage.mice.filter(m=>m.gender==='unknown').reduce((s,m)=>s+(m.count||0),0);
+            const fc=cage.mice.filter(m=>m.gender==='female').reduce((s,m)=>s+(m.count||0),0);
+            const tc=mc+uc+fc; const mp=tc>0?(mc/tc*100):0; const up=tc>0?(uc/tc*100):0; const fp=tc>0?(fc/tc*100):0;
+            const ws=getWeekRangeText(cage.mice);
+            const selected=selectedCageIds.has(cage.id);
+            const cardClass='cage-card'+(selected?' selected':'')+(isManualSort?' sortable':'');
+            const dragAttrs=isManualSort?' draggable="true"':'';
+            const selectHtml=csvSelectionMode?'<input class="cage-select" type="checkbox" data-cage-id="'+cage.id+'" aria-label="选择笼位 '+escHtml(cage.name)+'" '+(selected?'checked':'')+'>':'';
+            const disabledActionClass=csvSelectionMode?' is-disabled':'';
+            const locationGroupValue=escHtml(locationGroup || ((cage.location || '').trim() || '未设置位置'));
+            const actionMenuClass='cage-actions-menu'+(openActionMenuCageId===cage.id?' is-open':'');
+            let ml='';
+            if(cage.mice.length===0){ml='<div class="cage-empty-mice">暂无小鼠记录</div>';}
+            else{ml='<div class="mice-list">'+cage.mice.map((m,idx)=>{
+                const genderMeta=getGenderMeta(m.gender);
+                const idTag=m.individualIds&&m.individualIds.length?'<span class="count-badge">编号'+m.individualIds.length+'</span>':'';
+                return '<div class="mouse-item"><span class="strain">'+escHtml(m.strain)+'</span><div class="detail">'+getWeekTagHtml(m)+'<span class="gender-tag '+genderMeta.key+'">'+genderMeta.short+'</span><span class="count-badge">'+formatMouseCount(m.count)+'</span>'+idTag+'<button class="remove-mouse'+disabledActionClass+'" title="删除此组" data-cage="'+cage.id+'" data-idx="'+idx+'">✕</button></div></div>'+renderIndividualIdChips(m.individualIds,search);
+            }).join('')+'</div>';}
+            return '<div class="'+cardClass+'" data-cage-id="'+cage.id+'" data-location-group="'+locationGroupValue+'"'+dragAttrs+' style="animation-delay:'+(index*0.06)+'s"><div class="cage-header"><div class="cage-main">'+selectHtml+'<div class="cage-name-wrap"><div class="cage-name">'+escHtml(cage.name)+'</div>'+(cage.location?'<div class="cage-location">'+escHtml(cage.location)+'</div>':'')+'</div></div><div class="cage-actions"><div class="'+actionMenuClass+'"><button class="btn-icon cage-actions-trigger'+disabledActionClass+'" type="button" aria-label="展开笼位操作" data-action="toggle-menu" data-id="'+cage.id+'">⋯</button><div class="cage-actions-panel"><button class="btn-icon icon-add'+disabledActionClass+'" title="添加小鼠" data-action="add-mouse" data-id="'+cage.id+'">+</button><button class="btn-icon icon-edit'+disabledActionClass+'" title="编辑笼位" data-action="edit-cage" data-id="'+cage.id+'">✎</button><button class="btn-icon icon-del'+disabledActionClass+'" title="删除笼位" data-action="del-cage" data-id="'+cage.id+'">✕</button></div></div></div></div><div class="cage-body">'+(tc>0?'<div class="gender-bar"><div class="male-seg" style="width:'+mp+'%"></div><div class="unknown-seg" style="width:'+up+'%"></div><div class="female-seg" style="width:'+fp+'%"></div></div><div class="gender-labels"><span><span class="dot m"></span> 雄性 '+mc+'只</span><span><span class="dot u"></span> 未知 '+uc+'只</span><span><span class="dot f"></span> 雌性 '+fc+'只</span></div><div class="gender-labels" style="margin-top:0.35rem;"><span data-role="cage-week-range" data-cage-id="'+cage.id+'">周龄: '+ws+'</span><span>共 '+tc+'只</span></div>':'')+ml+'</div><div class="cage-footer"><span class="cage-total">共 <strong>'+(tc||'-')+'</strong> '+(tc?'只 / ':'/ ')+cage.mice.length+' 组</span><button class="btn btn-sm btn-ghost'+disabledActionClass+'" data-action="detail" data-id="'+cage.id+'">详情 ›</button></div></div>';
+        }
+
+        function escHtml(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+
+        // ========== 事件委托 ==========
+        document.addEventListener('click',function(e){
+            const menuBtn=e.target.closest('[data-action="toggle-menu"]');
+            if(menuBtn){toggleActionMenu(menuBtn.dataset.id);return;}
+            if(!e.target.closest('.cage-actions-menu') && openActionMenuCageId){
+                openActionMenuCageId='';
+                renderCages();
+                return;
+            }
+            const selectBox=e.target.closest('.cage-select');
+            if(selectBox){toggleCageSelection(selectBox.dataset.cageId, selectBox.checked);return;}
+            const ab=e.target.closest('[data-action]');
+            if(ab){const a=ab.dataset.action,id=ab.dataset.id;if(a==='add-mouse')openMouseModal(id);else if(a==='edit-cage')editCage(id);else if(a==='del-cage')confirmDeleteCage(id);else if(a==='detail')showDetail(id);return;}
+            const rb=e.target.closest('.remove-mouse');
+            if(rb&&csvSelectionMode)return;
+            if(rb){e.preventDefault();return;}
+        });
+        document.addEventListener('pointerdown',function(e){
+            const rb=e.target.closest('.remove-mouse');
+            if(!rb || csvSelectionMode)return;
+            if(e.button !== undefined && e.button !== 0)return;
+            e.preventDefault();
+            startMouseRemoveHold(rb);
+        });
+        ['pointerup','pointercancel','pointerleave'].forEach(evt=>{
+            document.addEventListener(evt,function(){
+                clearRemoveHoldState();
+            });
+        });
+        document.addEventListener('dragstart',function(e){
+            const groupHeader=e.target.closest('.location-group-header[draggable="true"]');
+            const group=groupHeader?groupHeader.closest('.location-group.sortable-group'):null;
+            if(group){
+                if(document.getElementById('sortBy').value!=='manual')return;
+                draggedLocationSection=group.dataset.locationSection||'';
+                dragTargetLocationSection='';
+                dragLocationInsertMode='before';
+                group.classList.add('group-dragging');
+                if(e.dataTransfer){
+                    e.dataTransfer.effectAllowed='move';
+                    e.dataTransfer.setData('text/plain', draggedLocationSection);
+                }
+                return;
+            }
+            const card=e.target.closest('.cage-card.sortable');
+            if(!card || document.getElementById('sortBy').value!=='manual')return;
+            if(e.target.closest('.cage-actions') || e.target.closest('.cage-select') || e.target.closest('.remove-mouse') || e.target.closest('[data-action]') || e.target.closest('button') || e.target.closest('input') || e.target.closest('select') || e.target.closest('textarea') || e.target.closest('label')) {
+                return;
+            }
+            draggedCageId=card.dataset.cageId||'';
+            draggedLocationGroup=card.dataset.locationGroup||'';
+            dragTargetCageId='';
+            dragInsertMode='before';
+            card.classList.add('dragging');
+            if(e.dataTransfer){
+                e.dataTransfer.effectAllowed='move';
+                e.dataTransfer.setData('text/plain', draggedCageId);
+            }
+        });
+        document.addEventListener('dragover',function(e){
+            const group=e.target.closest('.location-group.sortable-group');
+            if(draggedLocationSection){
+                const grid=document.getElementById('cageGrid');
+                if(grid){
+                    const groups=[...grid.querySelectorAll('.location-group.sortable-group')];
+                    if(groups.length>0){
+                        const firstGroup=groups[0];
+                        const lastGroup=groups[groups.length-1];
+                        const firstRect=firstGroup.getBoundingClientRect();
+                        const lastRect=lastGroup.getBoundingClientRect();
+                        if(e.clientY < firstRect.top){
+                            e.preventDefault();
+                            clearLocationGroupDragState();
+                            dragTargetLocationSection=firstGroup.dataset.locationSection||'';
+                            dragLocationInsertMode='before';
+                            firstGroup.classList.add('group-drag-target-before');
+                            return;
+                        }
+                        if(e.clientY > lastRect.bottom){
+                            e.preventDefault();
+                            clearLocationGroupDragState();
+                            dragTargetLocationSection=lastGroup.dataset.locationSection||'';
+                            dragLocationInsertMode='after';
+                            lastGroup.classList.add('group-drag-target-after');
+                            return;
+                        }
+                    }
+                }
+            }
+            if(draggedLocationSection && group && !e.target.closest('.cage-card')){
+                if((group.dataset.locationSection||'')===draggedLocationSection)return;
+                e.preventDefault();
+                if(e.dataTransfer)e.dataTransfer.dropEffect='move';
+                const rect=group.getBoundingClientRect();
+                const nextInsertMode=e.clientY<rect.top+rect.height/2?'before':'after';
+                if(dragTargetLocationSection===group.dataset.locationSection&&dragLocationInsertMode===nextInsertMode)return;
+                clearLocationGroupDragState();
+                dragTargetLocationSection=group.dataset.locationSection||'';
+                dragLocationInsertMode=nextInsertMode;
+                group.classList.add(dragLocationInsertMode==='before'?'group-drag-target-before':'group-drag-target-after');
+                return;
+            }
+            const card=e.target.closest('.cage-card.sortable');
+            if(!draggedCageId || !card || card.dataset.cageId===draggedCageId)return;
+            if((card.dataset.locationGroup||'')!==draggedLocationGroup){
+                clearDragTargetState();
+                return;
+            }
+            e.preventDefault();
+            if(e.dataTransfer)e.dataTransfer.dropEffect='move';
+            const rect=card.getBoundingClientRect();
+            const nextInsertMode=e.clientY<rect.top+rect.height/2?'before':'after';
+            if(dragTargetCageId===card.dataset.cageId&&dragInsertMode===nextInsertMode)return;
+            clearDragTargetState();
+            dragTargetCageId=card.dataset.cageId||'';
+            dragInsertMode=nextInsertMode;
+            card.classList.add(dragInsertMode==='before'?'drag-target-before':'drag-target-after');
+        });
+        document.addEventListener('drop',function(e){
+            const group=e.target.closest('.location-group.sortable-group');
+            if(draggedLocationSection){
+                let targetGroup=group;
+                let mode='';
+                const grid=document.getElementById('cageGrid');
+                if(grid){
+                    const groups=[...grid.querySelectorAll('.location-group.sortable-group')];
+                    if(groups.length>0){
+                        const firstGroup=groups[0];
+                        const lastGroup=groups[groups.length-1];
+                        const firstRect=firstGroup.getBoundingClientRect();
+                        const lastRect=lastGroup.getBoundingClientRect();
+                        if(e.clientY < firstRect.top){
+                            targetGroup=firstGroup;
+                            mode='before';
+                        } else if(e.clientY > lastRect.bottom){
+                            targetGroup=lastGroup;
+                            mode='after';
+                        }
+                    }
+                }
+                if(targetGroup && !mode){
+                    if((targetGroup.dataset.locationSection||'')===draggedLocationSection)return;
+                    const rect=targetGroup.getBoundingClientRect();
+                    mode=e.clientY<rect.top+rect.height/2?'before':'after';
+                }
+                if(targetGroup && !e.target.closest('.cage-card')){
+                    if((targetGroup.dataset.locationSection||'')===draggedLocationSection)return;
+                    e.preventDefault();
+                    const visibleLocations=[...document.querySelectorAll('.location-group.sortable-group[data-location-section]')].map(el=>el.dataset.locationSection||'');
+                    const moved=moveLocationGroupRelative(draggedLocationSection, targetGroup.dataset.locationSection||'', mode, visibleLocations);
+                    clearLocationGroupDragState();
+                    draggedLocationSection='';
+                    dragTargetLocationSection='';
+                    dragLocationInsertMode='before';
+                    if(moved){
+                        saveData();
+                        renderCages();
+                        showToast('位置组顺序已更新','success');
+                    }
+                    return;
+                }
+                clearLocationGroupDragState();
+                draggedLocationSection='';
+                dragTargetLocationSection='';
+                dragLocationInsertMode='before';
+            }
+            const card=e.target.closest('.cage-card.sortable');
+            if(!draggedCageId || !card)return;
+            if((card.dataset.locationGroup||'')!==draggedLocationGroup){
+                clearDragTargetState();
+                draggedCageId='';
+                draggedLocationGroup='';
+                dragTargetCageId='';
+                dragInsertMode='before';
+                return;
+            }
+            e.preventDefault();
+            const targetId=card.dataset.cageId||'';
+            const rect=card.getBoundingClientRect();
+            const mode=e.clientY<rect.top+rect.height/2?'before':'after';
+            const moved=moveCageRelative(draggedCageId,targetId,mode);
+            clearDragTargetState();
+            draggedCageId='';
+            draggedLocationGroup='';
+            dragTargetCageId='';
+            dragInsertMode='before';
+            if(moved){
+                saveData();
+                renderCages();
+                showToast('笼位顺序已更新','success');
+            }
+        });
+        document.addEventListener('dragend',function(){
+            draggedCageId='';
+            draggedLocationGroup='';
+            dragTargetCageId='';
+            dragInsertMode='before';
+            draggedLocationSection='';
+            dragTargetLocationSection='';
+            dragLocationInsertMode='before';
+            document.querySelectorAll('.cage-card.dragging, .cage-card.drag-target-before, .cage-card.drag-target-after').forEach(el=>{
+                el.classList.remove('dragging');
+                el.classList.remove('drag-target-before');
+                el.classList.remove('drag-target-after');
+            });
+            document.querySelectorAll('.location-group.group-dragging, .location-group.group-drag-target-before, .location-group.group-drag-target-after').forEach(el=>{
+                el.classList.remove('group-dragging');
+                el.classList.remove('group-drag-target-before');
+                el.classList.remove('group-drag-target-after');
+            });
+        });
+
+        // ========== 笼位 CRUD ==========
+        function openCageModal(editId){
+            document.getElementById('cageEditId').value=editId||'';
+            document.getElementById('cageModalTitle').textContent=editId?'编辑笼位':'新建笼位';
+            if(editId){const c=cages.find(x=>x.id===editId);if(c){document.getElementById('cageName').value=c.name;document.getElementById('cageLocation').value=c.location;document.getElementById('cageNotes').value=c.notes;}}
+            else{document.getElementById('cageName').value='';document.getElementById('cageLocation').value='';document.getElementById('cageNotes').value='';}
+            document.getElementById('cageModal').classList.add('active');
+            setTimeout(()=>document.getElementById('cageName').focus(),100);
+        }
+        function closeCageModal(){document.getElementById('cageModal').classList.remove('active');}
+        function saveCage(){
+            const eid=document.getElementById('cageEditId').value;
+            const nm=document.getElementById('cageName').value.trim();
+            const lc=document.getElementById('cageLocation').value.trim();
+            const nt=document.getElementById('cageNotes').value.trim();
+            if(!nm){showToast('请填写笼位编号','error');document.getElementById('cageName').focus();return;}
+            if(cages.some(c=>c.name.toLowerCase()===nm.toLowerCase()&&c.id!==eid)){showToast('笼位编号已存在','error');document.getElementById('cageName').focus();return;}
+            if(eid){const c=cages.find(x=>x.id===eid);if(c){c.name=nm;c.location=lc;c.notes=nt;showToast('笼位信息已更新','success');}}
+            else{cages.push({id:genId(),name:nm,location:lc,notes:nt,createdAt:Date.now(),sortOrder:cages.length,mice:[]});showToast('笼位创建成功','success');}
+            syncCageSortOrder();
+            locationOrder = normalizeLocationOrder(locationOrder, cages);
+            saveData();renderCages();closeCageModal();
+        }
+        function editCage(id){openCageModal(id);}
+        function confirmDeleteCage(id){
+            const c=cages.find(x=>x.id===id);if(!c)return;
+            const t=c.mice.reduce((s,m)=>s+m.count,0);
+            document.getElementById('confirmText').innerHTML='确认删除笼位 <strong>'+escHtml(c.name)+'</strong>？'+(t>0?'该笼位内还有 <strong>'+t+'</strong> 只小鼠。':'')+'此操作不可撤销。';
+            document.getElementById('confirmBtn').onclick=()=>deleteCage(id);
+            document.getElementById('confirmModal').classList.add('active');
+        }
+        function deleteCage(id){cages=cages.filter(c=>c.id!==id);syncCageSortOrder();locationOrder = normalizeLocationOrder(locationOrder, cages);saveData();renderCages();closeConfirm();showToast('笼位已删除','info');}
+        function closeConfirm(){document.getElementById('confirmModal').classList.remove('active');}
+
+        // ========== 小鼠 CRUD ==========
+        function openMouseModal(cageId,editIdx){
+            document.getElementById('mouseCageId').value=cageId;
+            document.getElementById('mouseEditIdx').value=editIdx!==undefined?editIdx:-1;
+            selectedGender='';resetDeleteState();
+            const ft=document.getElementById('mouseModalFooter');
+            const dw=document.getElementById('deleteGroupWrap');
+            const mw=document.getElementById('moveGroupWrap');
+            const moveSelect=document.getElementById('moveTargetCage');
+            if(editIdx!==undefined&&editIdx>=0){
+                const c=cages.find(x=>x.id===cageId);
+                if(c&&c.mice[editIdx]){const m=c.mice[editIdx];
+                    document.getElementById('mouseStrain').value=m.strain;
+                    document.getElementById('mouseCountUnknown').checked=m.count===null||m.count===undefined;
+                    document.getElementById('mouseCount').value=m.count===null||m.count===undefined?'':m.count;
+                    document.getElementById('mouseBirthDate').value=m.birthDate||'';
+                    document.getElementById('mouseWeeks').value=getCurrentWeeks(m)!==null?getCurrentWeeks(m):'';
+                    document.getElementById('enableIndividualIds').checked=!!(m.individualIds&&m.individualIds.length);
+                    document.getElementById('mouseIdPrefix').value=(m.individualIds&&m.individualIds[0]&&m.individualIds[0].match(/^(.*?)(\d+)$/))?m.individualIds[0].replace(/(\d+)$/,''):buildDefaultIdPrefix(c.name,m.gender);
+                    document.getElementById('mouseIndividualIds').value=serializeIndividualIds(m.individualIds);
+                    toggleUnknownCount();
+                    toggleIndividualIdsField();
+                    selectGender(m.gender);
+                    document.getElementById('mouseModalTitle').textContent='编辑小鼠组';
+                    document.getElementById('mouseSaveBtn').textContent='保存修改';
+                }
+                moveSelect.innerHTML=getMoveTargetOptions(cageId);
+                mw.classList.toggle('active',moveSelect.options.length>0);
+                dw.style.display='block';ft.classList.add('edit-mode');
+            } else {
+                document.getElementById('mouseStrain').value='';document.getElementById('mouseCount').value='';
+                document.getElementById('mouseCountUnknown').checked=false;
+                document.getElementById('mouseBirthDate').value='';document.getElementById('mouseWeeks').value='';
+                document.getElementById('enableIndividualIds').checked=false;
+                document.getElementById('mouseIdPrefix').value='';
+                document.getElementById('mouseIndividualIds').value='';
+                toggleUnknownCount();
+                toggleIndividualIdsField();
+                document.getElementById('genderMale').className='gender-option';document.getElementById('genderUnknown').className='gender-option';document.getElementById('genderFemale').className='gender-option';
+                document.getElementById('mouseModalTitle').textContent='添加小鼠组';
+                document.getElementById('mouseSaveBtn').textContent='确认添加';
+                moveSelect.innerHTML='';
+                mw.classList.remove('active');
+                dw.style.display='none';ft.classList.remove('edit-mode');
+            }
+            document.getElementById('mouseModal').classList.add('active');
+            setTimeout(()=>document.getElementById('mouseStrain').focus(),100);
+        }
+        function closeMouseModal(){document.getElementById('mouseModal').classList.remove('active');resetDeleteState();}
+        function selectGender(g){
+            selectedGender=g;
+            document.getElementById('genderMale').className=g==='male'?'gender-option active-male':'gender-option';
+            document.getElementById('genderUnknown').className=g==='unknown'?'gender-option active-unknown':'gender-option';
+            document.getElementById('genderFemale').className=g==='female'?'gender-option active-female':'gender-option';
+        }
+        function toggleUnknownCount(){
+            const unknown=document.getElementById('mouseCountUnknown').checked;
+            const countInput=document.getElementById('mouseCount');
+            const idsCheckbox=document.getElementById('enableIndividualIds');
+            countInput.disabled=unknown;
+            countInput.placeholder=unknown?'数量未知':'1';
+            if(unknown){
+                countInput.value='';
+                idsCheckbox.checked=false;
+                document.getElementById('mouseIdPrefix').value='';
+                document.getElementById('mouseIndividualIds').value='';
+            }
+            idsCheckbox.disabled=unknown;
+            toggleIndividualIdsField();
+            updateMouseIdStatus();
+        }
+        function toggleIndividualIdsField(){
+            const enabled=document.getElementById('enableIndividualIds').checked;
+            const box=document.getElementById('individualIdsConfig');
+            box.classList.toggle('active',enabled);
+            updateMouseIdStatus();
+        }
+        function generateIndividualIds(){
+            if(document.getElementById('mouseCountUnknown').checked){showToast('数量未知时不能生成个体编号', 'error');return;}
+            const count=parseInt(document.getElementById('mouseCount').value,10);
+            if(!count||count<1){showToast('请先填写数量', 'error');document.getElementById('mouseCount').focus();return;}
+            const prefix = inferMouseIdPrefix();
+            document.getElementById('mouseIndividualIds').value=buildIndividualIds(prefix,count).join('\n');
+            updateMouseIdStatus();
+        }
+        function fillMissingIndividualIds(){
+            if(document.getElementById('mouseCountUnknown').checked){showToast('数量未知时不能补齐个体编号', 'error');return;}
+            const count=parseInt(document.getElementById('mouseCount').value,10);
+            if(!count||count<1){showToast('请先填写数量', 'error');document.getElementById('mouseCount').focus();return;}
+            const existingIds=parseIndividualIds(document.getElementById('mouseIndividualIds').value);
+            const duplicates=findDuplicateValues(existingIds);
+            if(duplicates.length>0){
+                showToast('当前组内存在重复编号，请先处理', 'error');
+                document.getElementById('mouseIndividualIds').focus();
+                return;
+            }
+            const remaining=count-existingIds.length;
+            if(remaining<=0){
+                showToast('当前编号数量已足够，无需补齐', 'info');
+                updateMouseIdStatus();
+                return;
+            }
+            const prefix = inferMouseIdPrefix();
+            const filledIds = existingIds.concat(buildUniqueIndividualIds(prefix, remaining, existingIds));
+            document.getElementById('mouseIndividualIds').value=filledIds.join('\n');
+            updateMouseIdStatus();
+            showToast('已补齐缺失编号', 'success');
+        }
+        function checkDuplicateIndividualIds(){
+            const groups = new Map();
+            cages.forEach(cage => {
+                cage.mice.forEach((mouse, index) => {
+                    normalizeIndividualIds(mouse.individualIds).forEach(id => {
+                        if (!groups.has(id)) groups.set(id, []);
+                        groups.get(id).push(cage.name + ' / ' + mouse.strain + ' / 第' + (index + 1) + '组');
+                    });
+                });
+            });
+            const duplicates = [...groups.entries()].filter(([, locations]) => locations.length > 1);
+            if (duplicates.length === 0) {
+                showToast('未发现跨组重复编号', 'success');
+                return;
+            }
+            const preview = duplicates.slice(0, 3).map(([id, locations]) => id + '（' + locations.length + '处）').join('；');
+            showToast('发现 ' + duplicates.length + ' 个跨组重复编号：' + preview, 'info');
+        }
+
+        document.getElementById('mouseBirthDate').addEventListener('input',function(){
+            if(autoFilling)return;autoFilling=true;
+            if(this.value){const w=calcWeeksFromBirth(this.value);document.getElementById('mouseWeeks').value=w!==null?w:'';}
+            setTimeout(()=>{autoFilling=false;},50);
+        });
+        document.getElementById('mouseWeeks').addEventListener('input',function(){
+            if(autoFilling)return;autoFilling=true;
+            if(this.value!==''&&!isNaN(parseFloat(this.value))&&parseFloat(this.value)>=0){document.getElementById('mouseBirthDate').value=calcBirthFromWeeks(parseFloat(this.value));}
+            setTimeout(()=>{autoFilling=false;},50);
+        });
+        document.getElementById('mouseIndividualIds').addEventListener('input', updateMouseIdStatus);
+        document.getElementById('mouseCount').addEventListener('input', updateMouseIdStatus);
+        document.getElementById('mouseIdPrefix').addEventListener('input', updateMouseIdStatus);
+
+        function saveMouse(){
+            const cid=document.getElementById('mouseCageId').value;
+            const eidx=parseInt(document.getElementById('mouseEditIdx').value);
+            const st=document.getElementById('mouseStrain').value.trim();
+            const countUnknown=document.getElementById('mouseCountUnknown').checked;
+            const ct=countUnknown?null:parseInt(document.getElementById('mouseCount').value,10);
+            const bd=document.getElementById('mouseBirthDate').value;
+            const wv=document.getElementById('mouseWeeks').value;
+            const wk=wv!==''?parseFloat(wv):null;
+            if(!st){showToast('请填写品系','error');document.getElementById('mouseStrain').focus();return;}
+            if(!countUnknown&&(!ct||ct<1)){showToast('数量至少为1，或勾选数量未知','error');document.getElementById('mouseCount').focus();return;}
+            if(!bd&&(wk===null||isNaN(wk)||wk<0)){showToast('请填写出生日期或周龄','error');return;}
+            if(bd&&isFutureDateInput(bd)){showToast('出生日期不能晚于今天','error');document.getElementById('mouseBirthDate').focus();return;}
+            if(!selectedGender){showToast('请选择性别','error');return;}
+            const enableIds=document.getElementById('enableIndividualIds').checked;
+            let individualIds=[];
+            if(countUnknown&&enableIds){
+                showToast('数量未知时不能启用个体编号','error');
+                return;
+            }
+            if(enableIds){
+                individualIds=parseIndividualIds(document.getElementById('mouseIndividualIds').value);
+                if(individualIds.length===0){
+                    showToast('已启用单独编号，请填写编号或点击自动生成','error');
+                    document.getElementById('mouseIndividualIds').focus();
+                    return;
+                }
+                const duplicateIds=findDuplicateValues(individualIds);
+                if(duplicateIds.length>0){
+                    showToast('同一组内不能有重复编号：'+duplicateIds.join('、'),'error');
+                    document.getElementById('mouseIndividualIds').focus();
+                    return;
+                }
+                if(individualIds.length!==ct){
+                    showToast('个体编号数量需与小鼠数量一致','error');
+                    document.getElementById('mouseIndividualIds').focus();
+                    return;
+                }
+            }
+            const c=cages.find(x=>x.id===cid);if(!c)return;
+            const fw=bd?calcWeeksFromBirth(bd):wk;
+            const md={strain:st,count:ct,birthDate:bd||'',weeks:fw,gender:selectedGender,individualIds:individualIds};
+            if(eidx>=0&&c.mice[eidx]){c.mice[eidx]=md;showToast('小鼠组信息已更新','success');}
+            else{c.mice.push(md);showToast('小鼠组已添加','success');}
+            saveData();renderCages();closeMouseModal();
+        }
+        function removeMouse(cid,idx){const c=cages.find(x=>x.id===cid);if(!c)return;const m=c.mice[idx],gm=getGenderMeta(m.gender);c.mice.splice(idx,1);saveData();renderCages();showToast('已移除 '+m.strain+' '+gm.full+'组','info');}
+
+        function handleDeleteGroup(){
+            const btn=document.getElementById('deleteGroupBtn');const txt=document.getElementById('deleteGroupText');
+            if(!deleteConfirming){deleteConfirming=true;btn.classList.add('confirming');txt.textContent='⚠ 再次点击确认删除';deleteTimer=setTimeout(()=>{resetDeleteState();},3000);}
+            else{clearTimeout(deleteTimer);const cid=document.getElementById('mouseCageId').value;const eidx=parseInt(document.getElementById('mouseEditIdx').value);const c=cages.find(x=>x.id===cid);if(c&&c.mice[eidx]){const m=c.mice[eidx],gm=getGenderMeta(m.gender);c.mice.splice(eidx,1);saveData();renderCages();closeMouseModal();showToast('已删除 '+m.strain+' '+gm.full+'组','info');}}
+        }
+        function moveMouseGroup(){
+            const sourceId=document.getElementById('mouseCageId').value;
+            const editIdx=parseInt(document.getElementById('mouseEditIdx').value,10);
+            const targetId=document.getElementById('moveTargetCage').value;
+            if(!targetId){showToast('请选择目标笼位','error');return;}
+            if(sourceId===targetId){showToast('目标笼位不能与当前笼位相同','error');return;}
+            const sourceCage=cages.find(x=>x.id===sourceId);
+            const targetCage=cages.find(x=>x.id===targetId);
+            if(!sourceCage||!targetCage||!sourceCage.mice[editIdx])return;
+            const movedMouse=sourceCage.mice.splice(editIdx,1)[0];
+            targetCage.mice.push(movedMouse);
+            saveData();renderCages();closeMouseModal();
+            showToast('已迁移到笼位 '+targetCage.name,'success');
+        }
+        function resetDeleteState(){deleteConfirming=false;if(deleteTimer){clearTimeout(deleteTimer);deleteTimer=null;}const btn=document.getElementById('deleteGroupBtn');const txt=document.getElementById('deleteGroupText');if(btn){btn.classList.remove('confirming');txt.textContent='删除此组';}}
+
+        // ========== 详情 ==========
+        function showDetail(cageId){
+            const c=cages.find(x=>x.id===cageId);if(!c)return;
+            const search=document.getElementById('searchInput').value.toLowerCase().trim();
+            document.getElementById('detailTitle').textContent=c.name+' 详情';
+            const mc=c.mice.filter(m=>m.gender==='male').reduce((s,m)=>s+(m.count||0),0);
+            const uc=c.mice.filter(m=>m.gender==='unknown').reduce((s,m)=>s+(m.count||0),0);
+            const fc=c.mice.filter(m=>m.gender==='female').reduce((s,m)=>s+(m.count||0),0);
+            const tc=mc+uc+fc;
+            const ws=getWeekRangeText(c.mice);
+            const strains=[...new Set(c.mice.map(m=>m.strain))];
+            let h='<div class="detail-section"><h3>基本信息</h3><div class="detail-info"><div class="detail-info-item"><div class="label">笼位编号</div><div class="value">'+escHtml(c.name)+'</div></div><div class="detail-info-item"><div class="label">放置位置</div><div class="value">'+(c.location?escHtml(c.location):'-')+'</div></div><div class="detail-info-item"><div class="label">小鼠总数</div><div class="value" style="color:var(--success)">'+tc+'</div></div><div class="detail-info-item"><div class="label">品系</div><div class="value">'+(strains.length>0?strains.map(s=>escHtml(s)).join(', '):'-')+'</div></div><div class="detail-info-item"><div class="label">雄 / 未知 / 雌</div><div class="value"><span style="color:var(--male)">'+mc+'</span> / <span style="color:var(--unknown)">'+uc+'</span> / <span style="color:var(--female)">'+fc+'</span></div></div><div class="detail-info-item"><div class="label">当前周龄范围</div><div class="value" data-role="detail-week-range" data-cage-id="'+c.id+'">'+ws+'</div></div></div></div>';
+            if(c.notes){h+='<div class="detail-section"><h3>备注</h3><div style="padding:0.7rem 0.9rem;background:var(--card);border-radius:8px;font-size:0.85rem;color:var(--fg2);line-height:1.6;">'+escHtml(c.notes)+'</div></div>';}
+            h+='<div class="detail-section"><h3>小鼠明细 ('+c.mice.length+'组)</h3><div class="mice-list">'+(c.mice.length===0?'<div class="cage-empty-mice">暂无小鼠</div>':c.mice.map((m,idx)=>{const genderMeta=getGenderMeta(m.gender);return '<div class="mouse-item" style="cursor:pointer" data-action="edit-mouse" data-cage="'+c.id+'" data-idx="'+idx+'"><span class="strain">'+escHtml(m.strain)+'</span><div class="detail">'+getWeekTagHtml(m)+'<span class="gender-tag '+genderMeta.key+'">'+genderMeta.short+'</span><span class="count-badge">'+formatMouseCount(m.count)+'</span><button class="remove-mouse" title="编辑" data-cage="'+c.id+'" data-idx="'+idx+'" style="color:var(--fg2)">✎</button></div></div>'+renderIndividualIdChips(m.individualIds,search);}).join(''))+'</div></div><div style="text-align:center;padding-top:0.5rem;"><button class="btn btn-primary" onclick="closeDetailModal();openMouseModal(\''+escapeJsString(c.id)+'\')">+ 添加小鼠组</button></div>';
+            document.getElementById('detailBody').innerHTML=h;
+            document.getElementById('detailModal').classList.add('active');
+            scheduleDynamicWeekRefresh();
+        }
+        function closeDetailModal(){document.getElementById('detailModal').classList.remove('active');}
+
+        // ========== Toast ==========
+        function showToast(msg,type){
+            const ct=document.getElementById('toastContainer');
+            const mk={success:'✓',error:'✕',info:'ℹ'};
+            const t=document.createElement('div');t.className='toast '+type;
+            t.innerHTML='<span class="toast-icon">'+(mk[type]||mk.info)+'</span> '+escHtml(msg);
+            ct.appendChild(t);setTimeout(()=>{if(t.parentNode)t.remove();},3000);
+        }
+
+        // ========== 粒子 ==========
+        function createParticles(){const c=document.getElementById('particles');for(let i=0;i<12;i++){const p=document.createElement('div');p.className='floating-particle';p.style.left=Math.random()*100+'vw';p.style.animationDelay=Math.random()*8+'s';p.style.animationDuration=(6+Math.random()*6)+'s';c.appendChild(p);}}
+        function setDragOverlayVisible(visible) {
+            const overlay = document.getElementById('dragOverlay');
+            if (overlay) overlay.classList.toggle('active', visible);
+        }
+
+        // ========== 键盘 & 遮罩 ==========
+        window.addEventListener('afterprint', () => {
+            document.body.classList.remove('printing-pdf');
+        });
+        document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(document.getElementById('confirmModal').classList.contains('active'))closeConfirm();else if(document.getElementById('exportModal').classList.contains('active'))closeExportModal();else if(document.getElementById('pdfPreviewModal').classList.contains('active'))closePdfPreview();else if(document.getElementById('mouseModal').classList.contains('active'))closeMouseModal();else if(document.getElementById('detailModal').classList.contains('active'))closeDetailModal();else if(document.getElementById('cageModal').classList.contains('active'))closeCageModal();else if(document.getElementById('welcomeImportModal').classList.contains('active'))closeWelcomeImportModal();}});
+        document.querySelectorAll('.modal-overlay').forEach(o=>{o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('active');});});
+        window.addEventListener('dragenter', function(e) {
+            if (!e.dataTransfer || ![...e.dataTransfer.types].includes('Files')) return;
+            e.preventDefault();
+            dragCounter++;
+            closeWelcomeImportModal();
+            setDragOverlayVisible(true);
+        });
+        window.addEventListener('dragover', function(e) {
+            if (!e.dataTransfer || ![...e.dataTransfer.types].includes('Files')) return;
+            e.preventDefault();
+        });
+        window.addEventListener('dragleave', function(e) {
+            if (!e.dataTransfer || ![...e.dataTransfer.types].includes('Files')) return;
+            e.preventDefault();
+            dragCounter = Math.max(0, dragCounter - 1);
+            if (dragCounter === 0) setDragOverlayVisible(false);
+        });
+        window.addEventListener('drop', function(e) {
+            if (!e.dataTransfer || !e.dataTransfer.files || e.dataTransfer.files.length === 0) return;
+            e.preventDefault();
+            dragCounter = 0;
+            setDragOverlayVisible(false);
+            importJsonFile(e.dataTransfer.files[0]);
+        });
+        window.addEventListener('beforeunload', function(e) {
+            if (!hasUnexportedChanges) return;
+            e.preventDefault();
+            e.returnValue = '';
+            scheduleExportReminderOnLeaveAttempt();
+        });
+        document.getElementById('detailBody').addEventListener('click',function(e){
+            const eb=e.target.closest('.remove-mouse');if(eb){e.stopPropagation();closeDetailModal();setTimeout(()=>openMouseModal(eb.dataset.cage,parseInt(eb.dataset.idx)),200);return;}
+            const it=e.target.closest('[data-action="edit-mouse"]');if(it){closeDetailModal();setTimeout(()=>openMouseModal(it.dataset.cage,parseInt(it.dataset.idx)),200);}
+        });
+
+        loadData();updateLastModifiedDisplay();updateSelectionSummary();renderCages();createParticles();openWelcomeImportModal();
+    </script>
+</body>
+</html>
